@@ -88,6 +88,7 @@ class _TushareHttpClient:
             "fields": fields,
         }
         res = requests.post(f"{self._api_url}/{api_name}", json=req_params, timeout=self._timeout)
+        logger.info(f"Tushare API {api_name} called with params {kwargs}, fields {fields},result {res.text}")
         if res.status_code != 200:
             raise Exception(f"Tushare API HTTP {res.status_code}")
 
