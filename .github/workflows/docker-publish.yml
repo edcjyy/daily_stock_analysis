@@ -3,7 +3,7 @@ name: Docker Release Publish
 on:
   push:
     tags:
-      - 'lastest'
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       release_tag:
