@@ -87,14 +87,14 @@ class _TushareHttpClient:
             "params": kwargs,
             "fields": fields,
         }
-        res = requests.post(self._api_url, json=req_params, timeout=self._timeout)
+        res = requests.post(f"{self._api_url}/{api_name}", json=req_params, timeout=self._timeout)
         if res.status_code != 200:
             raise Exception(f"Tushare API HTTP {res.status_code}")
 
         result = _json.loads(res.text)
         if result.get("code") != 0:
             raise Exception(result.get("msg") or f"Tushare API error code {result.get('code')}")
-
+        logger.info(f"Tushare API {api_name} called with params {kwargs}, fields {fields},result {result}")
         data = result.get("data") or {}
         columns = data.get("fields") or []
         items = data.get("items") or []
@@ -159,26 +159,32 @@ class TushareFetcher(BaseFetcher):
         从而减少 Docker / PyInstaller / 多虚拟环境场景下因缺包导致的初始化失败。
         """
         config = get_config()
-
+        # 确定 API URL：如果配置了代理地址则使用代理，否则使用官方 API
+        api_url = "http://api.tushare.pro"
+        if config.tushare_proxy_url and config.tushare_proxy_url.strip():
+            api_url = config.tushare_proxy_url.strip()
+            logger.info(f"Tushare 使用代理模式: {api_url}")
+        else:
+            logger.info("Tushare 使用官方 API 模式")
         if not config.tushare_token:
             logger.warning("Tushare Token 未配置，此数据源不可用")
             return
 
         try:
-            self._api = self._build_api_client(config.tushare_token)
+            self._api = self._build_api_client(config.tushare_token, api_url=api_url)
             logger.info("Tushare API 初始化成功")
         except Exception as e:
             logger.error(f"Tushare API 初始化失败: {e}")
             self._api = None
 
-    def _build_api_client(self, token: str) -> _TushareHttpClient:
+    def _build_api_client(self, token: str, api_url: str = "http://api.tushare.pro") -> _TushareHttpClient:
         """
         Build a lightweight Tushare Pro client over direct HTTP requests.
 
         The project already normalizes all Pro calls through the same request
         contract, so we do not need the official tushare SDK during runtime.
         """
-        client = _TushareHttpClient(token=token)
+        client = _TushareHttpClient(token=token, api_url=api_url)
         logger.debug("Tushare API client configured for direct HTTP calls")
         return client
 

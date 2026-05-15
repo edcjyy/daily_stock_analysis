@@ -25,6 +25,7 @@ const categoryDescriptionMap: Partial<Record<SystemConfigCategory, string>> = {
 const fieldTitleMap: Record<string, string> = {
   STOCK_LIST: '自选股列表',
   TUSHARE_TOKEN: 'Tushare Token',
+  TUSHARE_PROXY_URL: 'Tushare 代理地址',
   BOCHA_API_KEYS: 'Bocha API Keys',
   TAVILY_API_KEYS: 'Tavily API Keys',
   ANSPIRE_API_KEYS: 'Anspire API Keys',
@@ -71,7 +72,6 @@ const fieldTitleMap: Record<string, string> = {
   PUSHPLUS_TOKEN: 'PushPlus Token',
   REPORT_SUMMARY_ONLY: '仅分析结果摘要',
   MAX_WORKERS: '最大并发线程数',
-  MARKET_REVIEW_COLOR_SCHEME: '大盘复盘涨跌颜色',
   SCHEDULE_TIME: '定时任务时间',
   HTTP_PROXY: 'HTTP 代理',
   LOG_LEVEL: '日志级别',
@@ -97,6 +97,7 @@ const fieldTitleMap: Record<string, string> = {
 const fieldDescriptionMap: Record<string, string> = {
   STOCK_LIST: '使用逗号分隔股票代码，例如：600519,300750。',
   TUSHARE_TOKEN: '用于接入 Tushare Pro 数据服务的凭据。',
+  TUSHARE_PROXY_URL: 'Tushare API 代理地址（可选）。填写后，所有 Tushare 请求将通过该代理发送，而不是直连官方 api.tushare.pro。适合使用第三方中转站 token 的场景。',
   BOCHA_API_KEYS: '用于新闻检索的 Bocha 密钥，支持逗号分隔多个（最高优先级）。',
   TAVILY_API_KEYS: '用于新闻检索的 Tavily 密钥，支持逗号分隔多个。',
   ANSPIRE_API_KEYS: 'Anspire Open 密钥，支持逗号分隔多个；默认同时用于大模型网关和新闻检索。',
@@ -143,7 +144,6 @@ const fieldDescriptionMap: Record<string, string> = {
   PUSHPLUS_TOKEN: 'PushPlus 推送令牌。',
   REPORT_SUMMARY_ONLY: '仅推送分析结果摘要，不包含个股详情。多股时适合快速浏览。',
   MAX_WORKERS: '异步任务队列最大并发数。配置保存后，队列空闲时会自动应用；繁忙时延后生效。',
-  MARKET_REVIEW_COLOR_SCHEME: '控制大盘复盘指数涨跌幅图标颜色：green_up 为绿涨红跌，red_up 为红涨绿跌。',
   SCHEDULE_TIME: '每日定时任务执行时间，格式为 HH:MM。',
   HTTP_PROXY: '网络代理地址，可留空。',
   LOG_LEVEL: '设置日志输出级别。',
