@@ -721,7 +721,7 @@ class TushareFetcher(BaseFetcher):
         pro._DataApi__token = self._api._token
         pro._DataApi__http_url = self._api._api_url
         # 调用旧版实时接口 (ts.get_realtime_quotes)
-
+        
         try:
             df_rt = ts.get_realtime_quotes(symbol)
             if df_rt is not None and not df_rt.empty:
@@ -743,9 +743,10 @@ class TushareFetcher(BaseFetcher):
         except Exception as e:
             logging.info(f"  ✗ [接口1] get_realtime_quotes (实时行情) 失败: {e}")
         # 接口2: daily_basic (每日指标)
+        ts_code = self._convert_stock_code(stock_code)
         try:
-            df_basic = pro.daily_basic(ts_code=stock_code)
-            logging.info(f"调用 daily_basic 接口获取数据，参数 ts_code={stock_code}，结果: {df_basic.shape[0]} 行")
+            df_basic = pro.daily_basic(ts_code=ts_code)
+            logging.info(f"调用 daily_basic 接口获取数据，参数 ts_code={ts_code}，结果: {df_basic.shape[0]} 行")
             if df_basic is not None and not df_basic.empty:
                 basic = df_basic.iloc[0]
                 logging.info(f"  ✓ [接口2] daily_basic (每日指标) 成功获取数据: {basic.to_dict()}")
