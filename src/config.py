@@ -532,6 +532,8 @@ class Config:
     tushare_token: Optional[str] = None
     tushare_proxy_url: Optional[str] = None
     tickflow_api_key: Optional[str] = None
+    finnhub_api_key: Optional[str] = None
+    alphavantage_api_key: Optional[str] = None
     longbridge_app_key: Optional[str] = None
     longbridge_app_secret: Optional[str] = None
     longbridge_access_token: Optional[str] = None
@@ -1290,6 +1292,8 @@ class Config:
             tushare_token=os.getenv('TUSHARE_TOKEN'),
             tushare_proxy_url=os.getenv('TUSHARE_PROXY_URL', '').strip() or None,
             tickflow_api_key=os.getenv('TICKFLOW_API_KEY'),
+            finnhub_api_key=os.getenv('FINNHUB_API_KEY') or None,
+            alphavantage_api_key=os.getenv('ALPHAVANTAGE_API_KEY') or None,
             longbridge_app_key=os.getenv('LONGBRIDGE_APP_KEY') or None,
             longbridge_app_secret=os.getenv('LONGBRIDGE_APP_SECRET') or None,
             longbridge_access_token=os.getenv('LONGBRIDGE_ACCESS_TOKEN') or None,
