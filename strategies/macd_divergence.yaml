@@ -1,0 +1,55 @@
+# MACD Divergence Strategy / MACD背离
+
+name: macd_divergence
+display_name: MACD背离
+description: 通过价格与MACD柱状的背离信号，捕捉趋势反转机会。底背离为买入信号，顶背离为卖出信号。
+category: reversal
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_realtime_quote
+aliases: [MACD背离, 背离, 底背离, 顶背离]
+default_active: false
+default_priority: 25
+market_regimes: [volatile, trending_up, trending_down]
+
+instructions: |
+  **MACD背离（MACD Divergence Strategy）**
+
+  适用场景：
+  - 价格创新低（或新高）但MACD柱状图未同步创新低（或新高）。
+  - 适用于趋势末端，捕捉反转机会。
+
+  分析框架：
+
+  1. **底背离（买入信号）**
+     - 价格出现两个低点，第二个低点低于第一个低点。
+     - 同期MACD柱状图（红柱）第二个低点高于第一个低点（即绿柱面积缩小）。
+     - 使用 `analyze_trend` 获取MACD数据，与 `get_daily_history` 的价格低点对比。
+     - 背离成立后，等待价格站上5日线作为入场确认。
+
+  2. **顶背离（卖出信号）**
+     - 价格出现两个高点，第二个高点高于第一个高点。
+     - 同期MACD红柱第二个高点低于第一个高点（即红柱面积缩小）。
+     - 背离成立后，价格跌破5日线作为出场确认。
+
+  3. **级别确认**
+     - 日线级别背离权重最高，可建仓 30-50%。
+     - 60分钟级别背离可作为短线参考，仓位 10-20%。
+     - 周线级别背离可重仓 50-80%，等待时间长。
+
+  4. **止损与止盈**
+     - 买入止损设在背离低点下方 3%。
+     - 卖出止损（空单）设在背离高点上方 3%。
+     - 止盈参考前高/前低，或MACD柱状图再次背离时出场。
+
+  5. **风险提示**
+     - 背离可能多次出现才真正反转，需配合成交量确认（底背离时成交量萎缩，突破时放量）。
+     - 在强趋势中，背离可能失效（假性背离），需结合均线系统过滤。
+
+  评分调整建议：
+  - 日线底背离成立：`sentiment_score +15`
+  - 周线底背离：`sentiment_score +20`
+  - 顶背离成立：`sentiment_score -15`
+  - 背离失败（假性背离）：`sentiment_score -10`

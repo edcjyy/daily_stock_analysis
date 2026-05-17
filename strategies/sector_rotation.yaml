@@ -1,0 +1,55 @@
+# Sector Rotation Strategy / 板块轮动
+
+name: sector_rotation
+display_name: 板块轮动
+description: 跟踪资金在不同板块间的流入流出，捕捉板块轮动机会。
+category: sector
+core_rules: [1, 2, 3]
+required_tools:
+  - get_market_indices
+  - get_sector_rankings
+  - get_capital_flow
+  - search_stock_news
+aliases: [板块轮动, 行业轮动, 资金流向, 热点板块]
+default_active: false
+default_priority: 45
+market_regimes: [trending_up, trending_down, volatile]
+
+instructions: |
+  **板块轮动（Sector Rotation Strategy）**
+
+  适用场景：
+  - 市场有明确的热点轮动特征（如AI→机器人→新能源）。
+  - 资金从防御性板块（银行、公用事业）转向进攻性板块（科技、消费）。
+
+  分析框架：
+
+  1. **板块强度排名**
+     - 使用 `get_sector_rankings` 获取近5日板块涨幅排名。
+     - 排名前3的板块视为当前热点。
+     - 使用 `get_market_indices` 判断大盘趋势（热点板块需要大盘配合）。
+
+  2. **资金流向确认**
+     - 使用 `get_capital_flow` 查看板块主力资金净流入/流出。
+     - 连续3日主力净流入的板块 → 轮动持续性强。
+     - 主力净流入但板块涨幅不大 → 潜在补涨机会。
+
+  3. **轮动节奏判断**
+     - 早期：龙头股率先启动，板块内多股涨停。
+     - 中期：板块内分化，龙头继续强势，二线股跟涨。
+     - 末期：龙头滞涨，板块指数冲高回落 → 轮动结束信号。
+
+  4. **个股选择**
+     - 在热点板块中选择：龙头股（市场份额最高）、筹码集中、近期无减持。
+     - 使用 `search_stock_news` 确认个股无负面新闻。
+
+  5. **风险控制**
+     - 板块轮动速度快，持仓周期一般2-4周。
+     - 板块指数跌破10日均线 → 轮动结束，止损出场。
+     - 大盘转弱时，所有板块轮动失效，空仓观望。
+
+  评分调整建议：
+  - 板块排名前3且资金净流入：`sentiment_score +15`
+  - 板块内多股涨停（情绪高潮）：`sentiment_score +10`
+  - 板块指数放量突破：`sentiment_score +12`
+  - 大盘下跌时板块轮动失效：`sentiment_score -15`

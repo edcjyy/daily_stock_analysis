@@ -1,0 +1,59 @@
+# News Momentum Strategy / 新闻动量
+
+name: news_momentum
+display_name: 新闻动量
+description: 基于新闻情绪打分，连续正面新闻后趋势延续，负面新闻密集时回避。
+category: sentiment
+core_rules: [1, 2, 3]
+required_tools:
+  - search_stock_news
+  - search_comprehensive_intel
+  - get_stock_info
+  - get_realtime_quote
+aliases: [新闻动量, 情绪驱动, 事件驱动, 消息面]
+default_active: false
+default_priority: 40
+market_regimes: [trending_up, volatile]
+
+instructions: |
+  **新闻动量（News Momentum Strategy）**
+
+  适用场景：
+  - 个股或板块受重大新闻/政策/事件催化，情绪驱动的短期趋势。
+  - 正面新闻密集期做多，负面新闻密集期回避。
+
+  分析框架：
+
+  1. **新闻收集与情绪分类**
+     - 使用 `search_stock_news` 获取近7日相关新闻。
+     - 使用 `search_comprehensive_intel` 获取公司公告、行业分析。
+     - 将新闻分类为：正面（利好/超预期）、中性（常规/无影响）、负面（利空/不及预期）。
+
+  2. **情绪动量评分**
+     - 近7日正面新闻 > 3条且无重大负面 → 情绪动量强，买入信号。
+     - 近7日负面新闻 > 3条 → 情绪动量弱，回避或减仓。
+     - 连续正面新闻的"加速度"（第N条比第N-1条更正面）→ 动量加速，信号更强。
+
+  3. **价格验证**
+     - 正面新闻发布后，股价未明显上涨（滞涨） → 买入机会（市场尚未定价）。
+     - 正面新闻发布后，股价已大涨 >10% → 追高风险大，等待回调。
+     - 使用 `get_realtime_quote` 获取当前价格与涨幅。
+
+  4. **催化剂类型权重**
+     - 业绩超预期（权重最高）：`+20分`
+     - 政策利好/行业景气：`+15分`
+     - 大单合同/订单：`+12分`
+     - 机构调研/评级上调：`+8分`
+     - 高管增持/回购：`+10分`
+     - 大股东减持/业绩预警：`-20分`
+
+  5. **风险控制**
+     - 新闻动量消退标志：正面新闻减少 + 成交量萎缩。
+     - 重大负面新闻发布时立即止损，不等待价格确认。
+     - 纯情绪驱动（无基本面支撑）的行情通常持续5-10日，不宜恋战。
+
+  评分调整建议：
+  - 近7日正面新闻 >3条 + 滞涨：`sentiment_score +15`
+  - 业绩超预期催化：`sentiment_score +18`
+  - 负面新闻密集（>3条）：`sentiment_score -18`
+  - 新闻动量消退（利好出尽）：`sentiment_score -10`

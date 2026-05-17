@@ -1,0 +1,53 @@
+# RSI Overbought/Oversold Strategy / RSI超买超卖
+
+name: rsi_oversold
+display_name: RSI超买超卖
+description: 利用RSI指标的超买超卖区域，捕捉价格反转机会。RSI<30为超卖买入区，RSI>70为超买卖出区。
+category: momentum
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_realtime_quote
+aliases: [RSI, RSI超卖, RSI超买, 相对强弱指标]
+default_active: false
+default_priority: 30
+market_regimes: [volatile, sideways]
+
+instructions: |
+  **RSI超买超卖（RSI Overbought/Oversold Strategy）**
+
+  适用场景：
+  - 震荡市或趋势末端，RSI进入极端区域。
+  - 不适用于强趋势中（RSI可能长期停留在超买/超卖区）。
+
+  分析框架：
+
+  1. **RSI计算与阈值**
+     - 使用 `get_daily_history` 获取14日收盘价，计算RSI(14)。
+     - 超卖区：RSI < 30；超买区：RSI > 70。
+     - 更敏感阈值：RSI < 20（深度超卖），RSI > 80（深度超买）。
+
+  2. **买入信号（超卖区）**
+     - RSI < 30 且出现**底背离**（价格创新低但RSI低点抬高）→ 强买入信号。
+     - RSI 从超卖区向上穿越30线 → 买入确认。
+     - 结合 `analyze_trend` 确认不在强下跌趋势中（避免抄底在半山腰）。
+
+  3. **卖出信号（超买区）**
+     - RSI > 70 且出现**顶背离**（价格创新高但RSI高点降低）→ 强卖出信号。
+     - RSI 从超买区向下穿越70线 → 卖出确认。
+
+  4. **趋势过滤**
+     - 多头排列时，只做RSI超卖买入，不做超买卖出（趋势延续优先）。
+     - 空头排列时，只做RSI超买卖出，不做超卖买入。
+
+  5. **止损与止盈**
+     - 买入止损设在RSI低点对应K线的最低价下方2%。
+     - 卖出止损（空单）设在RSI高点对应K线的最高价上方2%。
+     - 止盈参考RSI回到50中轴线或相反极端区。
+
+  评分调整建议：
+  - RSI底背离 + 价格企稳：`sentiment_score +12`
+  - RSI超卖区金叉向上：`sentiment_score +8`
+  - RSI顶背离 + 价格滞涨：`sentiment_score -12`
+  - 强趋势中RSI长期超买/超卖（失效）：`sentiment_score 不调整`

@@ -1,0 +1,52 @@
+# Bollinger Break Strategy / 布林带突破
+
+name: bollinger_break
+display_name: 布林带突破
+description: 基于布林带通道的宽度压缩与价格突破，捕捉波动率扩张的趋势机会。
+category: volatility
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_realtime_quote
+aliases: [布林带, 波动率突破, 布林突破]
+default_active: false
+default_priority: 25
+market_regimes: [sideways, trending_up, trending_down]
+
+instructions: |
+  **布林带突破（Bollinger Breakout Strategy）**
+
+  适用场景：
+  - 布林带带宽（上轨-下轨）收窄至近期低位的"收缩"状态。
+  - 价格带量突破上轨（做多）或下轨（做空）。
+
+  分析框架：
+
+  1. **布林带计算**
+     - 使用 `get_daily_history` 获取近 20 日收盘价，计算 20 日 MA 及标准差。
+     - 上轨 = MA + 2*STD，下轨 = MA - 2*STD。
+     - 带宽 = (上轨 - 下轨) / MA，带宽 < 0.04 视为严重收缩。
+
+  2. **收缩后突破（最高优先级）**
+     - 带宽连续 5 日 < 0.05 后，当日收盘价突破上轨 → 买入信号。
+     - 突破日成交量 > 20 日均量 1.5 倍 → 确认有效性。
+     - 若突破下轨且成交量放大 → 卖出/做空信号。
+
+  3. **趋势确认**
+     - 突破方向应与 `analyze_trend` 的 MA 排列方向一致。
+     - 多头排列时只做向上突破，空头排列时只做向下突破。
+
+  4. **止损与止盈**
+     - 止损设在中轨（20 日 MA）下方 2%。
+     - 止盈参考上轨/下轨之外再加 1 个标准差。
+
+  5. **风险提示**
+     - 假突破：突破后 3 日内回落至带内 → 止损出场。
+     - 低波动率环境（带宽 < 0.03）谨慎操作，等待明确突破。
+
+  评分调整建议：
+  - 布林带严重收缩后放量突破：`sentiment_score +14`
+  - 突破方向与趋势一致：`sentiment_score +8`
+  - 假突破（3 日内回落）：`sentiment_score -12`
+  - 带宽持续扩大（波动率上升）：`sentiment_score +6`

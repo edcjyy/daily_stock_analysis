@@ -1,0 +1,59 @@
+# Fundamental Growth Strategy / 基本面成长
+
+name: fundamental_growth
+display_name: 基本面成长
+description: 筛选营收/净利润增速高、PEG低、ROE高的优质成长股，适合中长期持仓。
+category: fundamental
+core_rules: [1, 2, 3]
+required_tools:
+  - get_stock_info
+  - get_daily_history
+  - get_realtime_quote
+  - search_stock_news
+aliases: [基本面, 成长股, 价值投资, 财务分析]
+default_active: false
+default_priority: 40
+market_regimes: [trending_up, bull_market]
+
+instructions: |
+  **基本面成长（Fundamental Growth Strategy）**
+
+  适用场景：
+  - 中长期投资（持仓周期 > 3个月）。
+  - 优先选择行业景气度高、业绩增速稳定的成长股。
+
+  分析框架：
+
+  1. **财务指标筛选**
+     - 营业收入同比增速 > 20%（连续两季度）。
+     - 净利润同比增速 > 20%（连续两季度）。
+     - ROE（净资产收益率）> 15%。
+     - PEG（市盈率相对盈利增长比率）< 1.0（理想 < 0.8）。
+     - 使用 `get_stock_info` 获取最新财报数据。
+
+  2. **估值检查**
+     - PE（市盈率）不高于行业平均的1.5倍。
+     - PB（市净率）< 5（避免高泡沫）。
+     - 使用 `get_realtime_quote` 获取当前价，计算PE/PB。
+
+  3. **行业与催化剂**
+     - 行业处于政策支持或需求上升周期（如新能源、AI、半导体）。
+     - 近期有新产品发布、订单增长、融资扩产等催化剂。
+     - 使用 `search_stock_news` 检查近期正面新闻。
+
+  4. **买入时机**
+     - 股价回踩20日或60日均线（缩量企稳）→ 理想买点。
+     - 避开财报发布前（业绩不确定性）。
+     - 避开大股东减持、解禁期。
+
+  5. **止损与持仓管理**
+     - 止损设在买入价下方15%（基本面止损）。
+     - 若财报后业绩不及预期，立即出场。
+     - 持仓期间定期（每季度）复核财务指标，增速放缓时减仓。
+
+  评分调整建议：
+  - 营收/净利润增速 >30%：`sentiment_score +15`
+  - ROE >20%：`sentiment_score +10`
+  - PEG <0.8：`sentiment_score +8`
+  - 行业景气度上行：`sentiment_score +10`
+  - 大股东减持或解禁：`sentiment_score -12`

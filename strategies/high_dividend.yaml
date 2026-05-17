@@ -1,0 +1,53 @@
+# High Dividend Strategy / 高股息策略
+
+name: high_dividend
+display_name: 高股息策略
+description: 筛选高股息率、派息稳定、连续增长的防御性标的，适合低风险偏好者。
+category: income
+core_rules: [1, 2, 3]
+required_tools:
+  - get_stock_info
+  - get_daily_history
+  - get_realtime_quote
+aliases: [高股息, 红利, 防御性, 价值投资, 股息率]
+default_active: false
+default_priority: 50
+market_regimes: [sideways, bear_market]
+
+instructions: |
+  **高股息策略（High Dividend Strategy）**
+
+  适用场景：
+  - 市场震荡或熊市，追求稳定现金流。
+  - 低风险偏好，持仓周期长（>1年）。
+
+  分析框架：
+
+  1. **股息率筛选**
+     - 股息率（每股分红/股价）> 4%。
+     - 连续5年分红且分红金额逐年增长。
+     - 使用 `get_stock_info` 获取近5年分红数据。
+
+  2. **派息稳定性**
+     - 分红支付率（分红/净利润）在30%-80%之间（健康范围）。
+     - 避免支付率 >100%（不可持续）或 <20%（分红意愿低）。
+     - 净利润现金含量（经营现金流/净利润）> 80%（分红有现金支撑）。
+
+  3. **行业选择**
+     - 优先：银行、公用事业、高速公路、电力（现金流稳定）。
+     - 避开：高周期行业（航运、有色金属），分红随周期大幅波动。
+
+  4. **买入时机**
+     - 股价因市场恐慌错杀，股息率被动升高至 >5% → 买入机会。
+     - 避开年报发布前（分红方案未定）。
+     - 结合 `analyze_trend` 确保中长期趋势不处于下跌浪。
+
+  5. **持仓与再投资**
+     - 收到分红后，若股价未高估，复利再投资。
+     - 每年复核分红可持续性，若支付率恶化或行业基本面转差，考虑调换。
+
+  评分调整建议：
+  - 股息率 >5% 且连续增长：`sentiment_score +15`
+  - 分红支付率健康（30%-80%）：`sentiment_score +10`
+  - 行业处于防御性（熊市/震荡）：`sentiment_score +8`
+  - 派息不稳定或支付率 >100%：`sentiment_score -12`

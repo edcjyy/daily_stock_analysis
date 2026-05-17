@@ -1,0 +1,54 @@
+# Mean Reversion Strategy / 均值回归
+
+name: mean_reversion
+display_name: 均值回归
+description: 价格严重偏离均线（乖离率过大）后回归均线的交易机会，适用于震荡市。
+category: mean_reversion
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_realtime_quote
+aliases: [均值回归, 乖离率, 回归策略, BIAS]
+default_active: false
+default_priority: 30
+market_regimes: [sideways]
+
+instructions: |
+  **均值回归（Mean Reversion Strategy）**
+
+  适用场景：
+  - 震荡市（无明确趋势方向）。
+  - 价格短期偏离均线过远，大概率回归。
+
+  分析框架：
+
+  1. **乖离率（BIAS）计算**
+     - 使用 `get_daily_history` 获取收盘价和均线数据。
+     - BIAS = (收盘价 - N日均线) / N日均线 × 100%。
+     - 关注BIAS(5)、BIAS(10)、BIAS(20)三个周期。
+
+  2. **买入信号（负乖离过大）**
+     - BIAS(5) < -4% 或 BIAS(10) < -7% → 超跌回归买入信号。
+     - 配合成交量萎缩（量比 < 0.8）→ 抛压衰竭确认。
+     - 使用 `get_realtime_quote` 获取量比数据。
+
+  3. **卖出信号（正乖离过大）**
+     - BIAS(5) > 4% 或 BIAS(10) > 7% → 超涨回归卖出信号。
+     - 配合成交量萎缩 → 上涨动力衰竭确认。
+
+  4. **结合布林带确认**
+     - 价格触及下轨且乖离率超跌 → 双重确认，信号更强。
+     - 价格触及上轨且乖离率超涨 → 双重卖出确认。
+     - 使用 `analyze_trend` 获取布林带数据。
+
+  5. **趋势过滤**
+     - 若MA20斜率明显向上 → 不做空（均值回归不适用于强趋势）。
+     - 若MA20斜率明显向下 → 不做多。
+     - MA20走平（震荡）时效果最佳。
+
+  评分调整建议：
+  - BIAS超跌 + 缩量企稳：`sentiment_score +12`
+  - BIAS超涨 + 量能萎缩：`sentiment_score -12`
+  - BIAS触及布林带下轨：`sentiment_score +8`
+  - 强趋势中BIAS持续偏离（策略失效）：`sentiment_score 不调整`

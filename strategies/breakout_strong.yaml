@@ -1,0 +1,56 @@
+# Strong Breakout Strategy / 强势突破
+
+name: breakout_strong
+display_name: 强势突破
+description: 放量突破前高且筹码集中，结合趋势确认，捕捉强势股主升段。
+category: breakout
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_chip_distribution
+  - get_realtime_quote
+  - search_stock_news
+aliases: [强势突破, 主升浪, 突破确认, 强势股]
+default_active: false
+default_priority: 20
+market_regimes: [trending_up]
+
+instructions: |
+  **强势突破（Strong Breakout Strategy）**
+
+  适用场景：
+  - 个股经过横盘整理（>2周），筹码高度集中后放量突破前高。
+  - 配合板块趋势和市场情绪，捕捉主升浪起点。
+
+  分析框架：
+
+  1. **横盘整理确认**
+     - 使用 `get_daily_history` 获取近60日数据，确认价格在窄幅区间（振幅<15%）横盘整理至少10个交易日。
+     - 横盘期间成交量逐步萎缩 → 筹码沉淀，突破潜力更大。
+
+  2. **筹码集中度**
+     - 使用 `get_chip_distribution` 获取筹码数据。
+     - 90%集中度 < 15% 且获利比例 > 70% → 筹码高度集中，抛压轻。
+     - 平均成本在当前价附近 → 突破时上方阻力小。
+
+  3. **突破确认（三重验证）**
+     - 价格放量突破横盘区间上沿（前高）。
+     - 当日成交量 > 20日均量2倍，使用 `get_realtime_quote` 确认。
+     - 收盘价在全天振幅上方30% → 强势收盘，非假突破。
+
+  4. **安全过滤**
+     - 使用 `search_stock_news` 排查：无大股东减持计划、无大额解禁（30日内）、无监管处罚。
+     - PE/PB估值未处于极端高位（避免泡沫型突破）。
+
+  5. **止损与止盈**
+     - 止损设在突破位（前高）下方3%。
+     - 止盈参考筹码集中区上沿，或使用2:1盈亏比（止盈 = 突破位 + 2×(突破位-止损位)）。
+     - 突破后若3日内未放量续涨 → 减仓一半。
+
+  评分调整建议：
+  - 筹码高度集中 + 放量突破前高：`sentiment_score +15`
+  - 板块同步走强（共振）：`sentiment_score +10`
+  - 横盘时间长（>20日）+ 缩量：`sentiment_score +8`
+  - 大股东减持或解禁在即：`sentiment_score -15`
+  - 假突破（3日内回落至区间内）：`sentiment_score -10`

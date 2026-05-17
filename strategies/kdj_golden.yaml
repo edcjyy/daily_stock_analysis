@@ -1,0 +1,52 @@
+# KDJ Golden Cross Strategy / KDJ金叉
+
+name: kdj_golden
+display_name: KDJ金叉
+description: 基于KDJ指标的K线与D线金叉/死叉信号，捕捉短期买卖点。
+category: momentum
+core_rules: [1, 2, 3]
+required_tools:
+  - get_daily_history
+  - analyze_trend
+  - get_realtime_quote
+aliases: [KDJ, KDJ金叉, KDJ死叉, 随机指标]
+default_active: false
+default_priority: 35
+market_regimes: [sideways, trending_up]
+
+instructions: |
+  **KDJ金叉（KDJ Golden Cross Strategy）**
+
+  适用场景：
+  - 震荡市或短期趋势转折。
+  - KDJ指标在低位（<20）金叉为买入信号，高位（>80）死叉为卖出信号。
+
+  分析框架：
+
+  1. **KDJ计算**
+     - 使用 `get_daily_history` 获取9日RSV数据，计算K值（3日平滑）和D值（3日平滑）。
+     - J值 = 3K - 2D，反映短期波动。
+
+  2. **买入信号（金叉）**
+     - K线由下向上穿过D线，且发生在20以下低位 → 强买入信号。
+     - 金叉时J值 < 0（超卖极端）→ 买入信号更强。
+     - 结合 `analyze_trend` 确认短期趋势不处于强下跌浪中。
+
+  3. **卖出信号（死叉）**
+     - K线由上向下穿过D线，且发生在80以上高位 → 强卖出信号。
+     - 死叉时J值 > 100（超买极端）→ 卖出信号更强。
+
+  4. **趋势过滤**
+     - 多头排列时，只做低位金叉，不做高位死叉（趋势延续优先）。
+     - 空头排列时，只做高位死叉，不做低位金叉。
+
+  5. **止损与止盈**
+     - 买入止损设在金叉对应K线的最低价下方2%。
+     - 卖出止损（空单）设在死叉对应K线的最高价上方2%。
+     - 止盈参考J值进入相反极端区（买入后J>100，卖出后J<0）。
+
+  评分调整建议：
+  - 低位金叉（K、D均<20）：`sentiment_score +10`
+  - 高位死叉（K、D均>80）：`sentiment_score -10`
+  - 金叉失败（3日内K跌破D）：`sentiment_score -8`
+  - 与MACD金叉共振：`sentiment_score +5`
