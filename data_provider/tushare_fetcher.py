@@ -16,7 +16,6 @@ TushareFetcher - 备用数据源 1 (Priority 2)
 
 import json as _json
 import logging
-from math import log
 import re
 import time
 from datetime import datetime, timedelta
