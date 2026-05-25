@@ -75,7 +75,7 @@ def _is_us_code(stock_code: str) -> bool:
 class _TushareHttpClient:
     """Lightweight Tushare Pro client that does not require the tushare SDK."""
 
-    def __init__(self, token: str, timeout: int = 30, api_url: str = "http://api.tushare.pro") -> None:
+    def __init__(self, token: str, timeout: int = 30, api_url: str = "http://api.waditu.com/dataapi") -> None:
         self._token = token
         self._timeout = timeout
         self._api_url = api_url
@@ -87,14 +87,15 @@ class _TushareHttpClient:
             "params": kwargs,
             "fields": fields,
         }
-        res = requests.post(self._api_url, json=req_params, timeout=self._timeout)
+        res = requests.post(f"{self._api_url}/{api_name}", json=req_params, timeout=self._timeout)
+        logger.debug(f"Tushare API {api_name} called with params {kwargs}, fields {fields},result {res.text}")
         if res.status_code != 200:
             raise Exception(f"Tushare API HTTP {res.status_code}")
 
         result = _json.loads(res.text)
         if result.get("code") != 0:
             raise Exception(result.get("msg") or f"Tushare API error code {result.get('code')}")
-
+        logger.debug(f"Tushare API {api_name} called with params {kwargs}, fields {fields},result {result}")
         data = result.get("data") or {}
         columns = data.get("fields") or []
         items = data.get("items") or []
@@ -159,26 +160,32 @@ class TushareFetcher(BaseFetcher):
         从而减少 Docker / PyInstaller / 多虚拟环境场景下因缺包导致的初始化失败。
         """
         config = get_config()
-
+        # 确定 API URL：如果配置了代理地址则使用代理，否则使用官方 API
+        api_url = "http://api.waditu.com/dataapi"
+        if config.tushare_proxy_url and config.tushare_proxy_url.strip():
+            api_url = config.tushare_proxy_url.strip()
+            logger.info(f"Tushare 使用代理模式: {api_url}")
+        else:
+            logger.info("Tushare 使用官方 API 模式")
         if not config.tushare_token:
             logger.warning("Tushare Token 未配置，此数据源不可用")
             return
 
         try:
-            self._api = self._build_api_client(config.tushare_token)
+            self._api = self._build_api_client(config.tushare_token, api_url=api_url)
             logger.info("Tushare API 初始化成功")
         except Exception as e:
             logger.error(f"Tushare API 初始化失败: {e}")
             self._api = None
 
-    def _build_api_client(self, token: str) -> _TushareHttpClient:
+    def _build_api_client(self, token: str, api_url: str = "http://api.waditu.com/dataapi") -> _TushareHttpClient:
         """
         Build a lightweight Tushare Pro client over direct HTTP requests.
 
         The project already normalizes all Pro calls through the same request
         contract, so we do not need the official tushare SDK during runtime.
         """
-        client = _TushareHttpClient(token=token)
+        client = _TushareHttpClient(token=token, api_url=api_url)
         logger.debug("Tushare API client configured for direct HTTP calls")
         return client
 
@@ -699,81 +706,84 @@ class TushareFetcher(BaseFetcher):
         # 速率限制检查
         self._check_rate_limit()
 
-        # 尝试 Pro 接口
-        try:
-            ts_code = self._convert_stock_code(stock_code)
-            # 尝试调用 Pro 实时接口 (需要积分)
-            df = self._api.quotation(ts_code=ts_code)
+        """获取A股数据（多接口互补）"""
+        result = {
+            # 基础行情
+            'name': None, 'price': None, 'change': None, 'pct_chg': None,
+            'open': None, 'high': None, 'low': None, 'pre_close': None,
+            'volume': None, 'amount': None,
+            # 每日指标 (daily_basic)
+            'turn_over_rate': None, 'pe': None, 'pb': None, 'total_mv': None,
+            'volume_ratio': None, 'circ_mv': None,
+            # 振幅
+            'amplitude': None,
+        }
+        symbol = self._get_legacy_realtime_symbol(stock_code)
 
-            if df is not None and not df.empty:
-                row = df.iloc[0]
-                logger.debug(f"Tushare Pro 实时行情获取成功: {stock_code}")
-
-                return UnifiedRealtimeQuote(
-                    code=normalized_code,
-                    name=str(row.get('name', '')),
-                    source=RealtimeSource.TUSHARE,
-                    price=safe_float(row.get('price')),
-                    change_pct=safe_float(row.get('pct_chg')),  # Pro 接口通常直接返回涨跌幅
-                    change_amount=safe_float(row.get('change')),
-                    volume=safe_int(row.get('vol')),
-                    amount=safe_float(row.get('amount')),
-                    high=safe_float(row.get('high')),
-                    low=safe_float(row.get('low')),
-                    open_price=safe_float(row.get('open')),
-                    pre_close=safe_float(row.get('pre_close')),
-                    turnover_rate=safe_float(row.get('turnover_ratio')), # Pro 接口可能有换手率
-                    pe_ratio=safe_float(row.get('pe')),
-                    pb_ratio=safe_float(row.get('pb')),
-                    total_mv=safe_float(row.get('total_mv')),
-                )
-        except Exception as e:
-            # 仅记录调试日志，不报错，继续尝试降级
-            logger.debug(f"Tushare Pro 实时行情不可用 (可能是积分不足): {e}")
-
-        # 降级：尝试旧版接口
+        # 接口1: ts.get_realtime_quotes —— 走新浪/腾讯行情，不经过 Tushare Pro API，无需代理
         try:
             import tushare as ts
+            df_rt = ts.get_realtime_quotes(symbol)
+            if df_rt is not None and not df_rt.empty:
+                rt = df_rt.iloc[0]
+                result['name'] = rt['name']
+                result['price'] = safe_float(rt['price'])
+                result['open'] = safe_float(rt['open'])
+                result['high'] = safe_float(rt['high'])
+                result['low'] = safe_float(rt['low'])
+                result['pre_close'] = safe_float(rt['pre_close'])
+                result['volume'] = safe_int(rt['volume']) if rt['volume'] else None
+                result['amount'] = safe_float(rt['amount']) if rt['amount'] else None
 
-            symbol = self._get_legacy_realtime_symbol(stock_code)
+                if result['price'] and result['pre_close']:
+                    result['change'] = round(result['price'] - result['pre_close'], 2)
+                    result['pct_chg'] = round((result['change'] / result['pre_close']) * 100, 2) if result['pre_close'] > 0 else 0.0
+                    # 计算振幅
+                    result['amplitude'] = round((result['high'] - result['low']) / result['pre_close'] * 100, 2)
+        except Exception as e:
+            logging.info(f"  ✗ [接口1] get_realtime_quotes (实时行情) 失败: {e}")
 
-            # 调用旧版实时接口 (ts.get_realtime_quotes)
-            df = ts.get_realtime_quotes(symbol)
-
-            if df is None or df.empty:
-                return None
-
-            row = df.iloc[0]
-
-            # 计算涨跌幅
-            price = safe_float(row['price'])
-            pre_close = safe_float(row['pre_close'])
-            change_pct = 0.0
-            change_amount = 0.0
-
-            if price and pre_close and pre_close > 0:
-                change_amount = price - pre_close
-                change_pct = (change_amount / pre_close) * 100
-
-            # 构建统一对象
-            return UnifiedRealtimeQuote(
-                code=normalized_code,
-                name=str(row['name']),
-                source=RealtimeSource.TUSHARE,
-                price=price,
-                change_pct=round(change_pct, 2),
-                change_amount=round(change_amount, 2),
-                volume=safe_int(row['volume']) // 100,  # 转换为手
-                amount=safe_float(row['amount']),
-                high=safe_float(row['high']),
-                low=safe_float(row['low']),
-                open_price=safe_float(row['open']),
-                pre_close=pre_close,
-            )
+        # 接口2: daily_basic (每日指标) —— 直接使用已配置代理的 self._api，不重新创建 ts.pro_api()
+        ts_code = self._convert_stock_code(stock_code)
+        try:
+            df_basic = self._call_api_with_rate_limit("daily_basic", ts_code=ts_code)
+            logging.info(f"调用 daily_basic 接口获取数据，参数 ts_code={ts_code}，结果: {df_basic.shape[0]} 行")
+            if df_basic is not None and not df_basic.empty:
+                basic = df_basic.iloc[0]
+                logging.info(f"  ✓ [接口2] daily_basic (每日指标) 成功获取数据: {basic.to_dict()}")
+                result['turn_over_rate'] = safe_float(basic['turnover_rate']) if basic.get('turnover_rate') not in [None, 'None', ''] else None
+                result['pe'] = safe_float(basic['pe']) if basic.get('pe') not in [None, 'None', ''] else None
+                result['pb'] = safe_float(basic['pb']) if basic.get('pb') not in [None, 'None', ''] else None
+                result['total_mv'] = safe_float(basic['total_mv']) if basic.get('total_mv') not in [None, 'None', ''] else None
+                result['volume_ratio'] = safe_float(basic['volume_ratio']) if basic.get('volume_ratio') not in [None, 'None', ''] else None
+                result['circ_mv'] = safe_float(basic['circ_mv']) if basic.get('circ_mv') not in [None, 'None', ''] else None
 
         except Exception as e:
-            logger.warning(f"Tushare (旧版) 获取实时行情失败 {stock_code}: {e}")
-            return None
+            logging.info(f"  ✗ [接口2]  daily_basic (每日指标) 失败: {e}")
+        logger.info(f"Tushare 获取实时行情结果: {result}\n UnifiedRealtimeQuote\n{UnifiedRealtimeQuote}")
+        # 构建统一对象
+        return UnifiedRealtimeQuote(
+            code=normalized_code,
+            name=str(result['name']),
+            source=RealtimeSource.TUSHARE,
+            price=result['price'],
+            change_pct=result['pct_chg'],
+            change_amount=result['change'],
+            volume=result['volume'] // 100,  # 转换为手
+            amount=result['amount'],
+            volume_ratio=result['volume_ratio'],
+            turnover_rate = result['turn_over_rate'],
+            amplitude = result['amplitude'],
+            open_price=result['open'],
+            high=result['high'],
+            low=result['low'],
+            pre_close=result['pre_close'],
+            pe_ratio=result['pe'],
+            pb_ratio=result['pb'],
+            total_mv=result['total_mv'],
+            circ_mv=result['circ_mv']
+            )
+
 
     def get_main_indices(self, region: str = "cn") -> Optional[List[dict]]:
         """
