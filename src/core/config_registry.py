@@ -425,24 +425,6 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         ],
         "warning_codes": ["secret_value"],
     },
-    "TUSHARE_PROXY_URL": {
-        "title": "Tushare Proxy URL",
-        "description": "Tushare API 代理地址（可选）。如果提供，API 请求将通过此代理发送，而不是官方 api.tushare.pro。从代理服务商获取 token 后在此配置代理地址。",
-        "category": "data_source",
-        "data_type": "string",
-        "ui_control": "text",
-        "is_sensitive": False,
-        "is_required": False,
-        "is_editable": True,
-        "default_value": None,
-        "options": [],
-        "validation": {"format": "url"},
-        "display_order": 11,
-        "help_key": "settings.data_source.TUSHARE_PROXY_URL",
-        "examples": [
-            "TUSHARE_PROXY_URL=http://your-proxy-server.com/tushare"
-        ],
-    },
     "TICKFLOW_API_KEY": {
         "title": "TickFlow API Key",
         "description": "API key for TickFlow market review enhancement (A-share indices, plus market stats when universe queries are enabled).",
