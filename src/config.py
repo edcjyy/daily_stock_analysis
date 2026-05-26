@@ -619,7 +619,6 @@ class Config:
 
     # === 数据源 API Token ===
     tushare_token: Optional[str] = None
-    tushare_proxy_url: Optional[str] = None
     tickflow_api_key: Optional[str] = None
     finnhub_api_key: Optional[str] = None
     alphavantage_api_key: Optional[str] = None
