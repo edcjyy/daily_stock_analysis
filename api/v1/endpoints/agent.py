@@ -11,10 +11,23 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-
 from src.config import get_config
 from src.services.agent_model_service import list_agent_model_deployments
+from api.v1.schemas.agent import (
+    AgentModelDeployment,
+    AgentModelsResponse,
+    ChatRequest,
+    ChatResponse,
+    ResearchRequest,
+    ResearchResponse,
+    SendChatRequest,
+    SessionItem,
+    SessionMessagesResponse,
+    SessionsResponse,
+    SkillInfo,
+    SkillsResponse,
+    StrategiesResponse,
+)
 
 # Tool name -> Chinese display name mapping
 TOOL_DISPLAY_NAMES: Dict[str, str] = {
@@ -39,57 +52,6 @@ TOOL_DISPLAY_NAMES: Dict[str, str] = {
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-class ChatRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    message: str
-    session_id: Optional[str] = None
-    skills: Optional[List[str]] = Field(
-        default=None,
-        validation_alias=AliasChoices("skills", "strategies"),
-    )
-    context: Optional[Dict[str, Any]] = None  # Previous analysis context for data reuse
-
-    @property
-    def effective_skills(self) -> Optional[List[str]]:
-        """Return skill ids from the unified request shape."""
-        return self.skills
-
-class ChatResponse(BaseModel):
-    success: bool
-    content: str
-    session_id: str
-    error: Optional[str] = None
-
-class SkillInfo(BaseModel):
-    id: str
-    name: str
-    description: str
-
-class SkillsResponse(BaseModel):
-    skills: List[SkillInfo]
-    default_skill_id: str = ""
-
-
-class StrategiesResponse(BaseModel):
-    strategies: List[SkillInfo]
-    default_strategy_id: str = ""
-
-
-class AgentModelDeployment(BaseModel):
-    deployment_id: str
-    model: str
-    provider: str
-    source: str
-    api_base: Optional[str] = None
-    deployment_name: Optional[str] = None
-    is_primary: bool = False
-    is_fallback: bool = False
-
-
-class AgentModelsResponse(BaseModel):
-    models: List[AgentModelDeployment]
 
 
 @router.get("/models", response_model=AgentModelsResponse)
@@ -189,21 +151,6 @@ async def agent_chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail={"error": "agent_chat_error", "message": "Agent chat failed", "detail": str(e)})
 
 
-class SessionItem(BaseModel):
-    session_id: str
-    title: str
-    message_count: int
-    created_at: Optional[str] = None
-    last_active: Optional[str] = None
-
-class SessionsResponse(BaseModel):
-    sessions: List[SessionItem]
-
-class SessionMessagesResponse(BaseModel):
-    session_id: str
-    messages: List[Dict[str, Any]]
-
-
 @router.get("/chat/sessions", response_model=SessionsResponse)
 async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
     """获取聊天会话列表
@@ -239,13 +186,6 @@ async def delete_chat_session(session_id: str):
     from src.storage import get_db
     count = get_db().delete_conversation_session(session_id)
     return {"deleted": count}
-
-
-class SendChatRequest(BaseModel):
-    """Request body for sending chat content to notification channels."""
-
-    content: str = Field(..., min_length=1, max_length=50000)
-    title: Optional[str] = None
 
 
 @router.post("/chat/send")
@@ -295,18 +235,6 @@ async def _run_research_in_background(
 # ============================================================
 # Deep research endpoint
 # ============================================================
-
-class ResearchRequest(BaseModel):
-    question: str
-    stock_code: Optional[str] = None
-
-class ResearchResponse(BaseModel):
-    success: bool
-    content: str
-    sources: List[str] = Field(default_factory=list)
-    token_usage: int = 0
-    error: Optional[str] = None
-
 
 @router.post("/research", response_model=ResearchResponse)
 async def agent_research(request: ResearchRequest):

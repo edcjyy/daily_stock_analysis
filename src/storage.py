@@ -1290,6 +1290,70 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             except Exception:
                 return None
 
+    def batch_get_latest_fundamental_snapshots(
+        self, pairs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], Optional[dict]]:
+        """Batch fetch latest fundamental snapshots for (query_id, code) pairs.
+
+        Returns a dict keyed by (query_id, code) -> snapshot dict or None.
+        """
+        if not pairs:
+            return {}
+
+        results: dict[tuple[str, str], Optional[dict]] = {}
+
+        with self.get_session() as session:
+            try:
+                conditions = [
+                    and_(
+                        FundamentalSnapshot.query_id == query_id,
+                        FundamentalSnapshot.code == code,
+                    )
+                    for query_id, code in pairs
+                ]
+                if not conditions:
+                    return results
+
+                subq = (
+                    select(
+                        FundamentalSnapshot.query_id,
+                        FundamentalSnapshot.code,
+                        func.max(FundamentalSnapshot.id).label("max_id"),
+                    )
+                    .where(or_(*conditions))
+                    .group_by(FundamentalSnapshot.query_id, FundamentalSnapshot.code)
+                    .subquery()
+                )
+
+                rows = session.execute(
+                    select(FundamentalSnapshot).join(
+                        subq, FundamentalSnapshot.id == subq.c.max_id
+                    )
+                ).scalars().all()
+
+                for row in rows:
+                    try:
+                        payload = json.loads(row.payload or "{}")
+                        results[(row.query_id, row.code)] = (
+                            payload if isinstance(payload, dict) else None
+                        )
+                    except Exception:
+                        results[(row.query_id, row.code)] = None
+
+                for pair in pairs:
+                    if pair not in results:
+                        results[pair] = None
+
+            except Exception as e:
+                logger.debug(
+                    "批量获取基本面快照失败（fail-open）: %s",
+                    e,
+                )
+                for pair in pairs:
+                    results[pair] = None
+
+        return results
+
     def get_recent_news(self, code: str, days: int = 7, limit: int = 20) -> List[NewsIntel]:
         """
         获取指定股票最近 N 天的新闻情报

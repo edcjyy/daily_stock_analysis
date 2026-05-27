@@ -12,6 +12,7 @@ A股自选股智能分析系统 - 分析服务层
 """
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional
 
 from src.analyzer import AnalysisResult
@@ -90,10 +91,15 @@ def analyze_stocks(
         config = get_config()
 
     results = []
-    for stock_code in stock_codes:
-        result = analyze_stock(stock_code, config, full_report, notifier)
-        if result:
-            results.append(result)
+    with ThreadPoolExecutor(max_workers=min(len(stock_codes), 4)) as executor:
+        future_map = {
+            executor.submit(analyze_stock, code, config, full_report, notifier): code
+            for code in stock_codes
+        }
+        for future in as_completed(future_map):
+            result = future.result()
+            if result:
+                results.append(result)
 
     return results
 
