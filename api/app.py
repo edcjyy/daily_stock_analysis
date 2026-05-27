@@ -202,7 +202,11 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+    # config_filename="" 禁用 slowapi 的 .env 自动读取，
+    # 避免在 Windows(GBK 默认编码)下因 UTF-8 中文注释导致 UnicodeDecodeError。
+    # 项目已通过 python-dotenv 独立加载 .env。
+    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"],
+                      config_filename="")
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
