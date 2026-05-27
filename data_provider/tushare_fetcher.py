@@ -23,6 +23,7 @@ from typing import Optional, Tuple, List, Dict, Any
 
 import pandas as pd
 import requests
+import tushare as ts
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -79,6 +80,7 @@ class _TushareHttpClient:
         self._token = token
         self._timeout = timeout
         self._api_url = api_url
+        self._session = requests.Session()  # 连接池复用，减少 TCP 握手开销
 
     def query(self, api_name: str, fields: str = "", **kwargs) -> pd.DataFrame:
         req_params = {
@@ -87,7 +89,8 @@ class _TushareHttpClient:
             "params": kwargs,
             "fields": fields,
         }
-        res = requests.post(f"{self._api_url}/{api_name}", json=req_params, timeout=self._timeout)
+        # 所有请求发送到 api_url（api_name 在请求体中，不在 URL 路径中）
+        res = self._session.post(self._api_url, json=req_params, timeout=self._timeout)
         if res.status_code != 200:
             raise Exception(f"Tushare API HTTP {res.status_code}")
 
@@ -141,6 +144,7 @@ class TushareFetcher(BaseFetcher):
         self._call_count = 0  # 当前分钟内的调用次数
         self._minute_start: Optional[float] = None  # 当前计数周期开始时间
         self._api: Optional[object] = None  # Tushare API 实例
+        self._pro_api_cache: Optional[Any] = None  # 缓存的 ts.pro_api 实例（get_realtime_quote 使用）
         self.date_list: Optional[List[str]] = None  # 交易日列表缓存（倒序，最新日期在前）
         self._date_list_end: Optional[str] = None  # 缓存对应的截止日期，用于跨日刷新
 
@@ -150,6 +154,43 @@ class TushareFetcher(BaseFetcher):
         # 根据 API 初始化结果动态调整优先级
         self.priority = self._determine_priority()
     
+    def _check_api_connectivity(self, token: str, api_url: str) -> bool:
+        """
+        验证 Tushare API 端点可达性（不验证 Token 有效性）。
+
+        发送一个轻量级 trade_cal 请求测试连通性：
+        - HTTP 200 → 端点可达（返回 True）
+        - 连接失败 → 端点不可达（返回 False，打印明确错误日志）
+        - 其他异常 → 不阻塞初始化（返回 True，避免偶发网络抖动阻断服务）
+
+        Returns:
+            True 表示端点可达或检查通过，False 表示确认不可达
+        """
+        try:
+            test_payload = {
+                "api_name": "trade_cal",
+                "token": token,
+                "params": {"exchange": "SSE", "start_date": "20240101", "end_date": "20240101"},
+                "fields": "",
+            }
+            resp = requests.post(api_url, json=test_payload, timeout=10)
+            if resp.status_code == 200:
+                logger.info("Tushare API 端点可达: %s", api_url)
+                return True
+            else:
+                logger.warning("Tushare API 端点返回非 200 状态码: %s (HTTP %d)", api_url, resp.status_code)
+                return True  # 端点可达，Token 有效性由后续请求验证
+        except requests.exceptions.ConnectionError:
+            logger.error(
+                "Tushare API 端点不可达（连接失败）: %s。"
+                "请检查代理地址是否正确，或网络是否通畅。",
+                api_url,
+            )
+            return False
+        except Exception as e:
+            logger.warning("Tushare API 连通性检查异常（不阻塞初始化）: %s", e)
+            return True  # 不阻塞初始化，避免偶发网络问题影响服务启动
+
     def _init_api(self) -> None:
         """
         初始化 Tushare API
@@ -163,18 +204,24 @@ class TushareFetcher(BaseFetcher):
         api_url = "http://api.tushare.pro"
         if config.tushare_proxy_url and config.tushare_proxy_url.strip():
             api_url = config.tushare_proxy_url.strip()
-            logger.info(f"Tushare 使用代理模式: {api_url}")
+            logger.info("Tushare 使用代理模式: %s", api_url)
         else:
             logger.info("Tushare 使用官方 API 模式")
+
         if not config.tushare_token:
             logger.warning("Tushare Token 未配置，此数据源不可用")
+            return
+
+        # 验证 API 端点可达性（代理模式时尤为重要）
+        if not self._check_api_connectivity(config.tushare_token, api_url):
+            logger.error("Tushare API 端点不可达，数据源将不可用。请检查配置后重启服务。")
             return
 
         try:
             self._api = self._build_api_client(config.tushare_token, api_url=api_url)
             logger.info("Tushare API 初始化成功")
         except Exception as e:
-            logger.error(f"Tushare API 初始化失败: {e}")
+            logger.error("Tushare API 初始化失败: %s", e)
             self._api = None
 
     def _build_api_client(self, token: str, api_url: str = "http://api.tushare.pro") -> _TushareHttpClient:
@@ -187,6 +234,28 @@ class TushareFetcher(BaseFetcher):
         client = _TushareHttpClient(token=token, api_url=api_url)
         logger.debug("Tushare API client configured for direct HTTP calls")
         return client
+
+    def _get_pro_api(self) -> Optional[Any]:
+        """
+        获取缓存并配置了代理的 tushare Pro API 客户端。
+
+        用于 get_realtime_quote() 等需要官方 SDK 的场景。
+        首次调用时创建并缓存，后续直接返回缓存实例，避免每次请求重复初始化。
+        """
+        if self._pro_api_cache is not None:
+            return self._pro_api_cache
+        if self._api is None:
+            return None
+        try:
+            pro = ts.pro_api(self._api._token)
+            pro._DataApi__token = self._api._token
+            pro._DataApi__http_url = self._api._api_url
+            self._pro_api_cache = pro
+            logger.debug("Tushare Pro API SDK 客户端已创建并缓存")
+            return pro
+        except Exception as e:
+            logger.warning("Tushare Pro API SDK 客户端创建失败: %s", e)
+            return None
 
     def _determine_priority(self) -> int:
         """
@@ -246,8 +315,8 @@ class TushareFetcher(BaseFetcher):
             sleep_time = max(0, 60 - elapsed) + 1  # +1 秒缓冲
             
             logger.warning(
-                f"Tushare 达到速率限制 ({self._call_count}/{self.rate_limit_per_minute} 次/分钟)，"
-                f"等待 {sleep_time:.1f} 秒..."
+                "Tushare 达到速率限制 (%d/%d 次/分钟)，等待 %.1f 秒...",
+                self._call_count, self.rate_limit_per_minute, sleep_time,
             )
             
             time.sleep(sleep_time)
@@ -258,7 +327,7 @@ class TushareFetcher(BaseFetcher):
         
         # 增加调用计数
         self._call_count += 1
-        logger.debug(f"Tushare 当前分钟调用次数: {self._call_count}/{self.rate_limit_per_minute}")
+        logger.debug("Tushare 当前分钟调用次数: %d/%d", self._call_count, self.rate_limit_per_minute)
 
     def _call_api_with_rate_limit(self, method_name: str, **kwargs) -> pd.DataFrame:
         """统一通过速率限制包装 Tushare API 调用。"""
@@ -692,7 +761,7 @@ class TushareFetcher(BaseFetcher):
 
         # HK stocks not supported by Tushare
         if _is_hk_market(stock_code):
-            logger.debug(f"TushareFetcher 跳过港股实时行情 {stock_code}")
+            logger.debug("TushareFetcher 跳过港股实时行情 %s", stock_code)
             return None
 
         normalized_code = normalize_stock_code(stock_code)
@@ -705,10 +774,12 @@ class TushareFetcher(BaseFetcher):
         # 速率限制检查
         self._check_rate_limit()
 
-        # 降级：尝试旧版接口
+        # 获取缓存的 Pro API 客户端
+        pro = self._get_pro_api()
+        if pro is None:
+            return None
 
-        import tushare as ts
-        """获取A股数据（多接口互补）"""
+        # 获取A股数据（多接口互补）
         result = {
             # 基础行情
             'name': None, 'price': None, 'change': None, 'pct_chg': None,
@@ -721,9 +792,7 @@ class TushareFetcher(BaseFetcher):
             'amplitude': None,
         }
         symbol = self._get_legacy_realtime_symbol(stock_code)
-        pro = ts.pro_api(self._api._token)
-        pro._DataApi__token = self._api._token
-        pro._DataApi__http_url = self._api._api_url
+        # pro 已通过 _get_pro_api() 缓存获取，无需每次重新创建
         # 调用旧版实时接口 (ts.get_realtime_quotes)
         
         try:
@@ -745,15 +814,15 @@ class TushareFetcher(BaseFetcher):
                     # 计算振幅
                     result['amplitude'] = round((result['high'] - result['low']) / result['pre_close'] * 100, 2)
         except Exception as e:
-            logging.info(f"  ✗ [接口1] get_realtime_quotes (实时行情) 失败: {e}")
+            logger.info("  ✗ [接口1] get_realtime_quotes (实时行情) 失败: %s", e)
         # 接口2: daily_basic (每日指标)
         ts_code = self._convert_stock_code(stock_code)
         try:
             df_basic = pro.daily_basic(ts_code=ts_code)
-            logging.info(f"调用 daily_basic 接口获取数据，参数 ts_code={ts_code}，结果: {df_basic.shape[0]} 行")
+            logger.info("调用 daily_basic 接口获取数据，参数 ts_code=%s，结果: %d 行", ts_code, df_basic.shape[0])
             if df_basic is not None and not df_basic.empty:
                 basic = df_basic.iloc[0]
-                logging.info(f"  ✓ [接口2] daily_basic (每日指标) 成功获取数据: {basic.to_dict()}")
+                logger.debug("  ✓ [接口2] daily_basic (每日指标) 成功获取数据")
                 result['turn_over_rate'] = safe_float(basic['turnover_rate']) if basic.get('turnover_rate') not in [None, 'None', ''] else None
                 result['pe'] = safe_float(basic['pe']) if basic.get('pe') not in [None, 'None', ''] else None
                 result['pb'] = safe_float(basic['pb']) if basic.get('pb') not in [None, 'None', ''] else None
@@ -762,7 +831,7 @@ class TushareFetcher(BaseFetcher):
                 result['circ_mv'] = safe_float(basic['circ_mv']) if basic.get('circ_mv') not in [None, 'None', ''] else None
 
         except Exception as e:
-            logging.info(f"  ✗ [接口2]  daily_basic (每日指标) 失败: {e}")
+            logger.info("  ✗ [接口2]  daily_basic (每日指标) 失败: %s", e)
         logger.info(f"Tushare 获取实时行情结果: {result}\n UnifiedRealtimeQuote\n{UnifiedRealtimeQuote}")
         # 构建统一对象
         return UnifiedRealtimeQuote(

@@ -398,7 +398,7 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "TUSHARE_TOKEN": {
         "title": "Tushare Token",
-        "description": "Token for Tushare Pro API.",
+        "description": "Token for Tushare Pro API. Supports both official Tushare tokens and API proxy relay tokens (configure proxy URL in TUSHARE_PROXY_URL).",
         "category": "data_source",
         "data_type": "string",
         "ui_control": "password",
