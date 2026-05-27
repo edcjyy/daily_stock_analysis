@@ -16,6 +16,7 @@ from typing import Optional
 from src.agent.agents.base_agent import BaseAgent
 from src.agent.protocols import AgentContext, AgentOpinion
 from src.agent.runner import try_parse_json
+from src.report_language import normalize_report_language
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class TechnicalAgent(BaseAgent):
     ]
 
     def system_prompt(self, ctx: AgentContext) -> str:
+        report_language = normalize_report_language(ctx.meta.get("report_language", "zh"))
         skills = ""
         if self.skill_instructions:
             skills = f"\n## Active Trading Skills\n\n{self.skill_instructions}\n"
@@ -42,7 +44,7 @@ class TechnicalAgent(BaseAgent):
         if self.technical_skill_policy:
             baseline = f"\n{self.technical_skill_policy}\n"
 
-        return f"""\
+        prompt = f"""\
 You are a **Technical Analysis Agent** specialising in Chinese A-shares, \
 Hong Kong stocks, and US equities.
 
@@ -73,6 +75,17 @@ Return **only** a JSON object (no markdown fences):
   "volume_status": "heavy|normal|light",
   "pattern": "<detected pattern or none>"
 }}
+"""
+        if report_language == "en":
+            return prompt + """
+## Output Language
+- Keep every JSON key unchanged.
+- Write all human-readable JSON values (reasoning, pattern description, etc.) in English.
+"""
+        return prompt + """
+## 输出语言
+- 所有 JSON 键名保持不变。
+- 所有面向用户的人类可读文本值（reasoning、pattern 描述等）必须使用中文。
 """
 
     def build_user_message(self, ctx: AgentContext) -> str:

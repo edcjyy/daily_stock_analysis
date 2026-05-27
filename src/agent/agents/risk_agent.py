@@ -22,6 +22,7 @@ from typing import Optional
 from src.agent.agents.base_agent import BaseAgent
 from src.agent.protocols import AgentContext, AgentOpinion
 from src.agent.runner import try_parse_json
+from src.report_language import normalize_report_language
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,8 @@ class RiskAgent(BaseAgent):
     ]
 
     def system_prompt(self, ctx: AgentContext) -> str:
-        return """\
+        report_language = normalize_report_language(ctx.meta.get("report_language", "zh"))
+        prompt = """\
 You are a **Risk Screening Agent** focused exclusively on identifying \
 risks and red flags for the given stock.
 
@@ -77,6 +79,17 @@ Return **only** a JSON object:
 
 Important: be thorough but factual. Only flag risks backed by evidence \
 from your search results. Do NOT invent risks.
+"""
+        if report_language == "en":
+            return prompt + """
+## Output Language
+- Keep every JSON key unchanged.
+- Write all human-readable JSON values (reasoning, flag descriptions, source) in English.
+"""
+        return prompt + """
+## 输出语言
+- 所有 JSON 键名保持不变。
+- 所有面向用户的人类可读文本值（reasoning、flag 描述、source）必须使用中文。
 """
 
     def build_user_message(self, ctx: AgentContext) -> str:

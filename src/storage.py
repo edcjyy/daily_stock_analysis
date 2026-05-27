@@ -250,6 +250,7 @@ class AnalysisHistory(Base):
 
     __table_args__ = (
         Index('ix_analysis_code_time', 'code', 'created_at'),
+        Index('ix_analysis_query_id', 'query_id'),
     )
 
     def to_dict(self) -> Dict[str, Any]:

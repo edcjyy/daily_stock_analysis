@@ -153,7 +153,7 @@ async def agent_chat(request: ChatRequest):
     config = get_config()
     
     if not config.is_agent_available():
-        raise HTTPException(status_code=400, detail="Agent mode is not enabled")
+        raise HTTPException(status_code=400, detail={"error": "agent_unavailable", "message": "Agent mode is not enabled"})
         
     session_id = request.session_id or str(uuid.uuid4())
     
@@ -186,7 +186,7 @@ async def agent_chat(request: ChatRequest):
     except Exception as e:
         logger.error(f"Agent chat API failed: {e}")
         logger.exception("Agent chat error details:")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail={"error": "agent_chat_error", "message": "Agent chat failed", "detail": str(e)})
 
 
 class SessionItem(BaseModel):
@@ -367,7 +367,7 @@ async def agent_research(request: ResearchRequest):
     except Exception as e:
         logger.error("Agent research API failed: %s", e)
         logger.exception("Agent research error details:")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail={"error": "agent_research_error", "message": "Agent research failed", "detail": str(e)})
 
 
 @router.post("/chat/stream")

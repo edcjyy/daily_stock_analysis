@@ -1,0 +1,340 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "E:\\Proj\\A\\daily_stock_analysis\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\runner.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\agent\\runner.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\agents\\risk_agent.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\agent\\agents\\risk_agent.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|e:\\Proj\\A\\daily_stock_analysis\\src\\config.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\config.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\orchestrator.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\agent\\orchestrator.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\data_provider\\tushare_fetcher.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:data_provider\\tushare_fetcher.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\data_provider\\akshare_fetcher.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:data_provider\\akshare_fetcher.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\api\\v1\\endpoints\\agent.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:api\\v1\\endpoints\\agent.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\bot\\commands\\ask.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:bot\\commands\\ask.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\src\\services\\agent_model_service.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\services\\agent_model_service.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\types\\analysis.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:apps\\dsa-web\\src\\types\\analysis.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\utils\\reportLanguage.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:apps\\dsa-web\\src\\utils\\reportLanguage.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|e:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\Extensions\\Microsoft\\Python\\Core\\pylance\\dist\\typeshed-fallback\\stdlib\\builtins.pyi||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\data_provider\\base.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:data_provider\\base.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\tests\\test_tushare_fetcher_followups.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tests\\test_tushare_fetcher_followups.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\__init__.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Proj\\A\\daily_stock_analysis\\data_provider\\realtime_types.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:data_provider\\realtime_types.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\data_pro.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\client.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\trader\\trader.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "risk_agent.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\agents\\risk_agent.py",
+              "RelativeDocumentMoniker": "src\\agent\\agents\\risk_agent.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\agents\\risk_agent.py",
+              "RelativeToolTip": "src\\agent\\agents\\risk_agent.py",
+              "ViewState": "AgIAABUAAAAAAAAAAAAAAB8AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T04:34:36.812Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "config.py",
+              "DocumentMoniker": "e:\\Proj\\A\\daily_stock_analysis\\src\\config.py",
+              "RelativeDocumentMoniker": "src\\config.py",
+              "ToolTip": "e:\\Proj\\A\\daily_stock_analysis\\src\\config.py",
+              "RelativeToolTip": "src\\config.py",
+              "ViewState": "AgIAADYFAAAAAAAAAAAmwEkFAAAqAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T04:22:02.05Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "runner.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\runner.py",
+              "RelativeDocumentMoniker": "src\\agent\\runner.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\runner.py",
+              "RelativeToolTip": "src\\agent\\runner.py",
+              "ViewState": "AgIAAFUBAAAAAAAAAAAIwG0BAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T04:20:54.484Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "ask.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\bot\\commands\\ask.py",
+              "RelativeDocumentMoniker": "bot\\commands\\ask.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\bot\\commands\\ask.py",
+              "RelativeToolTip": "bot\\commands\\ask.py",
+              "ViewState": "AgIAAMAAAAAAAAAAAAAmwNMAAAA+AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T03:58:54.08Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "agent_model_service.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\src\\services\\agent_model_service.py",
+              "RelativeDocumentMoniker": "src\\services\\agent_model_service.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\src\\services\\agent_model_service.py",
+              "RelativeToolTip": "src\\services\\agent_model_service.py",
+              "ViewState": "AgIAAGUAAAAAAAAAAAAmwHgAAAATAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T03:58:48.467Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "agent.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\api\\v1\\endpoints\\agent.py",
+              "RelativeDocumentMoniker": "api\\v1\\endpoints\\agent.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\api\\v1\\endpoints\\agent.py",
+              "RelativeToolTip": "api\\v1\\endpoints\\agent.py",
+              "ViewState": "AgIAAL8BAAAAAAAAAAAIwJMBAAAkAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T03:58:35.281Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "orchestrator.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\orchestrator.py",
+              "RelativeDocumentMoniker": "src\\agent\\orchestrator.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\src\\agent\\orchestrator.py",
+              "RelativeToolTip": "src\\agent\\orchestrator.py",
+              "ViewState": "AgIAALgAAAAAAAAAAAAmwNgAAAAdAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-17T03:49:53.472Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "ReportStrategy.tsx",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx",
+              "RelativeDocumentMoniker": "apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx",
+              "RelativeToolTip": "apps\\dsa-web\\src\\components\\report\\ReportStrategy.tsx",
+              "ViewState": "AgIAAB4AAAAAAAAAAAAmwDIAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2026-05-17T03:38:44.55Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "reportLanguage.ts",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\utils\\reportLanguage.ts",
+              "RelativeDocumentMoniker": "apps\\dsa-web\\src\\utils\\reportLanguage.ts",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\utils\\reportLanguage.ts",
+              "RelativeToolTip": "apps\\dsa-web\\src\\utils\\reportLanguage.ts",
+              "ViewState": "AgIAACsAAAAAAAAAAAAmwD4AAAAMAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2026-05-17T03:38:18.611Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "analysis.ts",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\types\\analysis.ts",
+              "RelativeDocumentMoniker": "apps\\dsa-web\\src\\types\\analysis.ts",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\apps\\dsa-web\\src\\types\\analysis.ts",
+              "RelativeToolTip": "apps\\dsa-web\\src\\types\\analysis.ts",
+              "ViewState": "AgIAAD8AAAAAAAAAAAAuwEsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2026-05-17T03:37:58.899Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "builtins.pyi",
+              "DocumentMoniker": "E:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\Extensions\\Microsoft\\Python\\Core\\pylance\\dist\\typeshed-fallback\\stdlib\\builtins.pyi",
+              "RelativeDocumentMoniker": "..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\Extensions\\Microsoft\\Python\\Core\\pylance\\dist\\typeshed-fallback\\stdlib\\builtins.pyi",
+              "ToolTip": "E:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\Extensions\\Microsoft\\Python\\Core\\pylance\\dist\\typeshed-fallback\\stdlib\\builtins.pyi",
+              "RelativeToolTip": "..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\Extensions\\Microsoft\\Python\\Core\\pylance\\dist\\typeshed-fallback\\stdlib\\builtins.pyi",
+              "ViewState": "AgIAAE8CAAAAAAAAAAAmwGICAAAIAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-16T19:06:11.232Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "akshare_fetcher.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\akshare_fetcher.py",
+              "RelativeDocumentMoniker": "data_provider\\akshare_fetcher.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\akshare_fetcher.py",
+              "RelativeToolTip": "data_provider\\akshare_fetcher.py",
+              "ViewState": "AgIAAJkDAAAAAAAAAAAAAKUDAAAUAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-16T16:15:16.568Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "tushare_fetcher.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\tushare_fetcher.py",
+              "RelativeDocumentMoniker": "data_provider\\tushare_fetcher.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\tushare_fetcher.py",
+              "RelativeToolTip": "data_provider\\tushare_fetcher.py",
+              "ViewState": "AgIAAIAEAAAAAAAAAAAmwJMEAAAMAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-15T19:18:34.542Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
+              "Title": "test_tushare_fetcher_followups.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\tests\\test_tushare_fetcher_followups.py",
+              "RelativeDocumentMoniker": "tests\\test_tushare_fetcher_followups.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\tests\\test_tushare_fetcher_followups.py",
+              "RelativeToolTip": "tests\\test_tushare_fetcher_followups.py",
+              "ViewState": "AgIAAJYAAAAAAAAAAAAmwKkAAAApAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-16T06:31:38.139Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "base.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\base.py",
+              "RelativeDocumentMoniker": "data_provider\\base.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\base.py",
+              "RelativeToolTip": "data_provider\\base.py",
+              "ViewState": "AgIAAHsFAAAAAAAAAAAmwJsFAAA+AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-16T05:41:12.925Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 16,
+              "Title": "realtime_types.py",
+              "DocumentMoniker": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\realtime_types.py",
+              "RelativeDocumentMoniker": "data_provider\\realtime_types.py",
+              "ToolTip": "E:\\Proj\\A\\daily_stock_analysis\\data_provider\\realtime_types.py",
+              "RelativeToolTip": "data_provider\\realtime_types.py",
+              "ViewState": "AgIAABwBAAAAAAAAAAAmwGwAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-16T04:50:47.358Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 18,
+              "Title": "client.py",
+              "DocumentMoniker": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\client.py",
+              "ToolTip": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\client.py",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAAABMAAAAvAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-15T19:34:58.492Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 19,
+              "Title": "trader.py",
+              "DocumentMoniker": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\trader\\trader.py",
+              "ToolTip": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\trader\\trader.py",
+              "ViewState": "AgIAAHgAAAAAAAAAAAApwBMAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-15T19:34:21.928Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 17,
+              "Title": "data_pro.py",
+              "DocumentMoniker": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\data_pro.py",
+              "ToolTip": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\pro\\data_pro.py",
+              "ViewState": "AgIAACsAAAAAAAAAAAAmwD4AAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-15T19:32:45.826Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
+              "Title": "__init__.py",
+              "DocumentMoniker": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\__init__.py",
+              "ToolTip": "C:\\Users\\Jiaoyiyang\\AppData\\Roaming\\Python\\Python313\\site-packages\\tushare\\__init__.py",
+              "ViewState": "AgIAADsAAAAAAAAAAAAmwFAAAAAyAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-05-15T19:32:35.626Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

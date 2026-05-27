@@ -29,6 +29,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 logger = logging.getLogger(__name__)
 
@@ -185,10 +188,11 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         allowed_origins.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
     
     # 允许所有来源（开发/演示用）
-    allow_all_origins = os.environ.get("CORS_ALLOW_ALL", "").lower() == "true"
+    allow_all_origins = os.environ.get("CORS_ALLOW_ALL", "false").lower() == "true"
     allow_credentials = not allow_all_origins
     if allow_all_origins:
         allowed_origins = ["*"]
+        logger.warning("CORS_ALLOW_ALL=true — allowing all origins. This is insecure for production.")
     
     app.add_middleware(
         CORSMiddleware,
@@ -197,6 +201,10 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     add_auth_middleware(app)
     
