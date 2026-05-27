@@ -73,7 +73,6 @@ hidden_imports=(
   "api.v1.endpoints.analysis"
   "api.v1.endpoints.history"
   "api.v1.endpoints.stocks"
-  "api.v1.endpoints.health"
   "api.v1.schemas"
   "api.v1.schemas.analysis"
   "api.v1.schemas.history"

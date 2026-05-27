@@ -50,10 +50,11 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             # 记录错误日志
             logger.error(
-                f"未处理的异常: {e}\n"
-                f"请求路径: {request.url.path}\n"
-                f"请求方法: {request.method}\n"
-                f"堆栈: {traceback.format_exc()}"
+                "未处理的异常: %s\n"
+                "请求路径: %s\n"
+                "请求方法: %s\n"
+                "堆栈: %s",
+                e, request.url.path, request.method, traceback.format_exc(),
             )
             
             # 返回统一格式的错误响应
@@ -114,9 +115,10 @@ def add_error_handlers(app) -> None:
     async def general_exception_handler(request: Request, exc: Exception):
         """处理通用异常"""
         logger.error(
-            f"未处理的异常: {exc}\n"
-            f"请求路径: {request.url.path}\n"
-            f"堆栈: {traceback.format_exc()}"
+            "未处理的异常: %s\n"
+            "请求路径: %s\n"
+            "堆栈: %s",
+            exc, request.url.path, traceback.format_exc(),
         )
         return JSONResponse(
             status_code=500,

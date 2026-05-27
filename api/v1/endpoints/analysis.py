@@ -28,7 +28,7 @@ from typing import Optional, Union, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from api.deps import get_config_dep
+from api.deps import get_config_dep, get_database_manager
 from api.v1.schemas.analysis import (
     AnalyzeRequest,
     AnalysisResultResponse,
@@ -53,6 +53,7 @@ from api.v1.schemas.history import (
 )
 from data_provider.base import canonical_stock_code, normalize_stock_code
 from src.config import Config
+from src.storage import DatabaseManager
 from src.core.market_review_lock import (
     MarketReviewExecutionLock as _MarketReviewExecutionLock,
     market_review_lock_path,
@@ -311,7 +312,7 @@ def trigger_analysis(
                     "message": "同步模式仅支持单只股票分析，请使用 async_mode=true 进行批量分析"
                 }
             )
-        return _handle_sync_analysis(stock_codes[0], request)
+        return _handle_sync_analysis(stock_codes[0], request, db_manager=None)
 
     # Async mode submits one task per stock.
     return _handle_async_analysis_batch(stock_codes, request)
@@ -412,7 +413,8 @@ def _handle_async_analysis_batch(
 
 def _handle_sync_analysis(
     stock_code: str,
-    request: AnalyzeRequest
+    request: AnalyzeRequest,
+    db_manager: Optional[DatabaseManager] = None,
 ) -> AnalysisResultResponse:
     """
     处理同步分析请求
@@ -421,6 +423,9 @@ def _handle_sync_analysis(
     """
     import uuid
     from src.services.analysis_service import AnalysisService
+
+    if db_manager is None:
+        db_manager = DatabaseManager.get_instance()
     
     query_id = uuid.uuid4().hex
     
@@ -450,6 +455,7 @@ def _handle_sync_analysis(
         context_snapshot, fundamental_snapshot = _load_sync_fundamental_sources(
             query_id=query_id,
             stock_code=result.get("stock_code", stock_code),
+            db_manager=db_manager,
         )
         report = _build_analysis_report(
             report_data,
@@ -473,12 +479,12 @@ def _handle_sync_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"分析失败: {e}", exc_info=True)
+        logger.error("分析失败: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "internal_error",
-                "message": f"分析过程发生错误: {str(e)}"
+                "message": "分析过程发生错误",
             }
         )
 
@@ -815,7 +821,10 @@ def _build_task_analysis_result(task: Any) -> AnalysisResultResponse:
     summary="查询分析任务状态",
     description="根据 task_id 查询单个任务的状态"
 )
-def get_analysis_status(task_id: str) -> TaskStatus:
+def get_analysis_status(
+    task_id: str,
+    db_manager: DatabaseManager = Depends(get_database_manager),
+) -> TaskStatus:
     """
     查询分析任务状态
     
@@ -868,9 +877,7 @@ def get_analysis_status(task_id: str) -> TaskStatus:
     
     # 2. 从数据库查询已完成的记录
     try:
-        from src.storage import DatabaseManager
-        db = DatabaseManager.get_instance()
-        records = db.get_analysis_history(query_id=task_id, limit=1)
+        records = db_manager.get_analysis_history(query_id=task_id, limit=1)
 
         if records:
             record = records[0]
@@ -913,7 +920,7 @@ def get_analysis_status(task_id: str) -> TaskStatus:
             realtime_fields = extract_realtime_detail_fields(context_snapshot)
             current_price = realtime_fields.get("current_price")
             change_pct = realtime_fields.get("change_pct")
-            fallback_fundamental = db.get_latest_fundamental_snapshot(
+            fallback_fundamental = db_manager.get_latest_fundamental_snapshot(
                 query_id=task_id,
                 code=record.code,
             )
@@ -991,12 +998,12 @@ def get_analysis_status(task_id: str) -> TaskStatus:
             )
 
     except Exception as e:
-        logger.error(f"查询任务状态失败: {e}", exc_info=True)
+        logger.error("查询任务状态失败: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "internal_error",
-                "message": f"查询任务状态失败: {str(e)}"
+                "message": "查询任务状态失败",
             }
         )
 
@@ -1017,20 +1024,20 @@ def get_analysis_status(task_id: str) -> TaskStatus:
 def _load_sync_fundamental_sources(
     query_id: str,
     stock_code: str,
+    db_manager: Optional[DatabaseManager] = None,
 ) -> tuple[Optional[Any], Optional[Dict[str, Any]]]:
     """
     Load context_snapshot and fallback fundamental snapshot for sync analyze response.
     """
     try:
-        from src.storage import DatabaseManager
-
-        db = DatabaseManager.get_instance()
-        records = db.get_analysis_history(query_id=query_id, code=stock_code, limit=1)
+        if db_manager is None:
+            db_manager = DatabaseManager.get_instance()
+        records = db_manager.get_analysis_history(query_id=query_id, code=stock_code, limit=1)
         context_snapshot = None
         if records:
             context_snapshot = parse_json_field(getattr(records[0], "context_snapshot", None))
 
-        fallback_fundamental = db.get_latest_fundamental_snapshot(
+        fallback_fundamental = db_manager.get_latest_fundamental_snapshot(
             query_id=query_id,
             code=stock_code,
         )

@@ -9,9 +9,12 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from src.config import get_config
+
+from api.deps import get_database_manager
+from src.storage import DatabaseManager
 from src.services.agent_model_service import list_agent_model_deployments
 from api.v1.schemas.agent import (
     AgentModelDeployment,
@@ -146,13 +149,16 @@ async def agent_chat(request: ChatRequest):
         )
             
     except Exception as e:
-        logger.error(f"Agent chat API failed: {e}")
-        logger.exception("Agent chat error details:")
-        raise HTTPException(status_code=500, detail={"error": "agent_chat_error", "message": "Agent chat failed", "detail": str(e)})
+        logger.exception("Agent chat API failed")
+        raise HTTPException(status_code=500, detail="内部服务错误")
 
 
 @router.get("/chat/sessions", response_model=SessionsResponse)
-async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
+async def list_chat_sessions(
+    limit: int = 50,
+    user_id: Optional[str] = None,
+    db_manager: DatabaseManager = Depends(get_database_manager),
+):
     """获取聊天会话列表
 
     Args:
@@ -163,8 +169,7 @@ async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
             include the platform prefix, e.g. ``telegram_12345``,
             ``feishu_ou_abc``.
     """
-    from src.storage import get_db
-    sessions = get_db().get_chat_sessions(
+    sessions = db_manager.get_chat_sessions(
         limit=limit,
         session_prefix=user_id,
         extra_session_ids=[user_id] if user_id else None,
@@ -173,18 +178,23 @@ async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
 
 
 @router.get("/chat/sessions/{session_id}", response_model=SessionMessagesResponse)
-async def get_chat_session_messages(session_id: str, limit: int = 100):
+async def get_chat_session_messages(
+    session_id: str,
+    limit: int = 100,
+    db_manager: DatabaseManager = Depends(get_database_manager),
+):
     """获取单个会话的完整消息"""
-    from src.storage import get_db
-    messages = get_db().get_conversation_messages(session_id, limit=limit)
+    messages = db_manager.get_conversation_messages(session_id, limit=limit)
     return SessionMessagesResponse(session_id=session_id, messages=messages)
 
 
 @router.delete("/chat/sessions/{session_id}")
-async def delete_chat_session(session_id: str):
+async def delete_chat_session(
+    session_id: str,
+    db_manager: DatabaseManager = Depends(get_database_manager),
+):
     """删除指定会话"""
-    from src.storage import get_db
-    count = get_db().delete_conversation_session(session_id)
+    count = db_manager.delete_conversation_session(session_id)
     return {"deleted": count}
 
 
@@ -244,7 +254,10 @@ async def agent_research(request: ResearchRequest):
     """
     config = get_config()
     if not config.is_agent_available():
-        raise HTTPException(status_code=400, detail="Agent mode is not enabled")
+        raise HTTPException(status_code=400, detail={
+            "error": "agent_disabled",
+            "message": "Agent mode is not enabled",
+        })
 
     question = request.question
     context: Optional[Dict[str, Any]] = None
@@ -293,9 +306,8 @@ async def agent_research(request: ResearchRequest):
             error=result.error if not result.success else None,
         )
     except Exception as e:
-        logger.error("Agent research API failed: %s", e)
-        logger.exception("Agent research error details:")
-        raise HTTPException(status_code=500, detail={"error": "agent_research_error", "message": "Agent research failed", "detail": str(e)})
+        logger.exception("Agent research API failed")
+        raise HTTPException(status_code=500, detail="内部服务错误")
 
 
 @router.post("/chat/stream")
@@ -312,7 +324,10 @@ async def agent_chat_stream(request: ChatRequest):
     """
     config = get_config()
     if not config.is_agent_available():
-        raise HTTPException(status_code=400, detail="Agent mode is not enabled")
+        raise HTTPException(status_code=400, detail={
+            "error": "agent_disabled",
+            "message": "Agent mode is not enabled",
+        })
 
     session_id = request.session_id or str(uuid.uuid4())
     loop = asyncio.get_running_loop()
@@ -353,7 +368,7 @@ async def agent_chat_stream(request: ChatRequest):
                 loop,
             )
         except Exception as exc:
-            logger.error(f"Agent stream error: {exc}")
+            logger.exception("Agent stream error")
             asyncio.run_coroutine_threadsafe(
                 queue.put({"type": "error", "message": str(exc)}),
                 loop,

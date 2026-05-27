@@ -3,7 +3,19 @@
 import logging
 import json
 import lark_oapi as lark
-from lark_oapi.api.docx.v1 import *
+from lark_oapi.api.docx.v1 import (
+    Block,
+    CreateDocumentRequest,
+    CreateDocumentRequestBody,
+    CreateDocumentBlockChildrenRequest,
+    CreateDocumentBlockChildrenRequestBody,
+    Divider,
+    Text,
+    TextElement,
+    TextElementStyle,
+    TextRun,
+    TextStyle,
+)
 from typing import List, Dict, Any, Optional
 from src.config import get_config
 

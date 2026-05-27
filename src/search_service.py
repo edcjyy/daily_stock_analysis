@@ -23,6 +23,9 @@ from typing import List, Dict, Any, Optional, Tuple
 from itertools import cycle
 from urllib.parse import parse_qsl, unquote, urlparse
 import requests
+
+# Module-level HTTP session for connection pooling (keep-alive across requests).
+_http_session = requests.Session()
 from newspaper import Article, Config
 from tenacity import (
     retry,
@@ -58,7 +61,7 @@ _SEARCH_TRANSIENT_EXCEPTIONS = (
 )
 def _post_with_retry(url: str, *, headers: Dict[str, str], json: Dict[str, Any], timeout: int) -> requests.Response:
     """POST with retry on transient SSL/network errors."""
-    return requests.post(url, headers=headers, json=json, timeout=timeout)
+    return _http_session.post(url, headers=headers, json=json, timeout=timeout)
 
 
 @retry(
@@ -72,7 +75,7 @@ def _get_with_retry(
     url: str, *, headers: Dict[str, str], params: Dict[str, Any], timeout: int
 ) -> requests.Response:
     """GET with retry on transient SSL/network errors."""
-    return requests.get(url, headers=headers, params=params, timeout=timeout)
+    return _http_session.get(url, headers=headers, params=params, timeout=timeout)
 
 
 def fetch_url_content(url: str, timeout: int = 5) -> str:
@@ -1547,7 +1550,7 @@ class BraveSearchProvider(BaseSearchProvider):
                 params["country"] = country
 
             # 执行搜索（GET 请求）
-            response = requests.get(
+            response = _http_session.get(
                 self.API_ENDPOINT,
                 headers=headers,
                 params=params,
@@ -1835,7 +1838,7 @@ class SearXNGSearchProvider(BaseSearchProvider):
                     return stale_urls
 
             try:
-                response = requests.get(
+                response = _http_session.get(
                     cls.PUBLIC_INSTANCES_URL,
                     timeout=cls.PUBLIC_INSTANCES_TIMEOUT_SECONDS,
                 )
@@ -1910,7 +1913,7 @@ class SearXNGSearchProvider(BaseSearchProvider):
                 "pageno": 1,
             }
 
-            request_get = _get_with_retry if retry_enabled else requests.get
+            request_get = _get_with_retry if retry_enabled else _http_session.get
             response = request_get(search_url, headers=headers, params=params, timeout=timeout)
 
             if response.status_code != 200:
