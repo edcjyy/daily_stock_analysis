@@ -4058,7 +4058,7 @@ def get_field_definition(key: str, value_hint: Optional[str] = None) -> Dict[str
     field = {
         "key": key_upper,
         "title": key_upper.replace("_", " ").title(),
-        "description": "Auto-inferred field metadata.",
+        "description": "自动推断的字段元数据（未在 schema 中注册）。",
         "category": category,
         "data_type": data_type,
         "ui_control": _infer_ui_control(data_type, key_upper),

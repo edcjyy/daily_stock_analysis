@@ -16,7 +16,7 @@ import {
 import { SettingsHelpButton } from './SettingsHelpButton';
 
 const PROTOCOL_OPTIONS: Array<{ value: ChannelProtocol; label: string }> = [
-  { value: 'openai', label: 'OpenAI Compatible' },
+  { value: 'openai', label: 'OpenAI 兼容' },
   { value: 'deepseek', label: 'DeepSeek' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'anthropic', label: 'Anthropic' },
@@ -52,9 +52,9 @@ const FALSEY_VALUES = new Set(['0', 'false', 'no', 'off']);
 
 const RUNTIME_CAPABILITY_OPTIONS: Array<{ value: LLMCapabilityCheck; label: string; hint: string }> = [
   { value: 'json', label: 'JSON', hint: '检测 response_format JSON 输出是否可用。' },
-  { value: 'tools', label: 'Tools', hint: '检测 function/tool calling 是否可用。' },
-  { value: 'stream', label: 'Stream', hint: '检测流式输出是否能返回有效 chunk。' },
-  { value: 'vision', label: 'Vision', hint: '检测当前模型是否接受 image_url 输入。' },
+  { value: 'tools', label: '工具调用', hint: '检测 function/tool calling 是否可用。' },
+  { value: 'stream', label: '流式输出', hint: '检测流式输出是否能返回有效 chunk。' },
+  { value: 'vision', label: '视觉', hint: '检测当前模型是否接受 image_url 输入。' },
 ];
 
 const CAPABILITY_STATUS_LABELS: Record<LLMCapabilityCheckResult['status'], string> = {
@@ -323,7 +323,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
               value={channel.name}
               disabled={busy}
               onChange={(e) => onUpdate(index, 'name', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-              placeholder="primary"
+              placeholder="默认渠道"
             />
             </div>
             <div className="space-y-2">
@@ -348,7 +348,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           <div>
             <HelpLabel
               htmlFor={baseUrlInputId}
-              label="Base URL"
+              label="基础地址"
               fieldKey="LLM_CHANNEL_BASE_URL"
               helpKey="settings.llm_channel.base_url"
               examples={['LLM_DEEPSEEK_BASE_URL=https://api.deepseek.com', 'LLM_OPENROUTER_BASE_URL=https://openrouter.ai/api/v1']}
@@ -411,7 +411,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           <div>
             <HelpLabel
               htmlFor={apiKeyInputId}
-              label="API Key"
+              label="API 密钥"
               fieldKey="LLM_CHANNEL_API_KEY"
               helpKey="settings.llm_channel.api_key"
               examples={['LLM_DEEPSEEK_API_KEY=sk-xxxx', 'LLM_OPENAI_API_KEYS=sk-key-1,sk-key-2']}
@@ -1754,11 +1754,11 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                   <span className="settings-accent-text text-xs font-medium uppercase tracking-wider">运行时参数</span>
                   <p className="mt-1 text-[11px] text-muted-text">主模型、备选模型、Vision 与 Temperature 会直接写入运行时配置。</p>
                 </div>
-                <Badge variant="default" className="border-[var(--settings-border)] bg-[var(--settings-surface-hover)] text-muted-text">Runtime</Badge>
+                <Badge variant="default" className="border-[var(--settings-border)] bg-[var(--settings-surface-hover)] text-muted-text">运行时</Badge>
               </div>
               <div className="mb-4">
                 <HelpLabel
-                  label="Temperature"
+                  label="温度参数"
                   fieldKey="LLM_TEMPERATURE"
                   helpKey="settings.llm_channel.temperature"
                   examples={['LLM_TEMPERATURE=0.2', 'LLM_TEMPERATURE=0.7']}
