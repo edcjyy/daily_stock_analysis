@@ -83,14 +83,15 @@ class _TushareHttpClient:
         self._session = requests.Session()  # 连接池复用，减少 TCP 握手开销
 
     def query(self, api_name: str, fields: str = "", **kwargs) -> pd.DataFrame:
+        kwargs.setdefault('ts_type_name', self._api_url)
         req_params = {
             "api_name": api_name,
             "token": self._token,
             "params": kwargs,
             "fields": fields,
         }
-        # 所有请求发送到 api_url（api_name 在请求体中，不在 URL 路径中）
-        res = self._session.post(self._api_url, json=req_params, timeout=self._timeout)
+        # URL 格式兼容 Tushare SDK: {api_url}/{api_name}
+        res = self._session.post(f"{self._api_url}/{api_name}", json=req_params, timeout=self._timeout)
         if res.status_code != 200:
             raise Exception(f"Tushare API HTTP {res.status_code}")
 
@@ -167,13 +168,14 @@ class TushareFetcher(BaseFetcher):
             True 表示端点可达或检查通过，False 表示确认不可达
         """
         try:
+            test_params = {"exchange": "SSE", "start_date": "20240101", "end_date": "20240101", "ts_type_name": api_url}
             test_payload = {
                 "api_name": "trade_cal",
                 "token": token,
-                "params": {"exchange": "SSE", "start_date": "20240101", "end_date": "20240101"},
+                "params": test_params,
                 "fields": "",
             }
-            resp = requests.post(api_url, json=test_payload, timeout=10)
+            resp = requests.post(f"{api_url}/trade_cal", json=test_payload, timeout=10)
             if resp.status_code == 200:
                 logger.info("Tushare API 端点可达: %s", api_url)
                 return True

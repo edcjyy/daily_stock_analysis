@@ -727,6 +727,11 @@ class Config:
     agent_event_monitor_interval_minutes: int = 5  # Polling interval for event monitor background checks
     agent_event_alert_rules_json: str = ""  # JSON array of serialized EventMonitor rules
 
+    # === 持仓动态跟踪 & 止损管理 ===
+    position_tracker_enabled: bool = True  # Auto-sync stop-loss/take-profit alerts from analysis
+    trailing_stop_method: str = "breakeven"  # breakeven | fixed_pct | none
+    trailing_stop_trigger_pct: float = 50.0  # Min gain % to activate trailing stop
+
     # === 通知配置（可同时配置多个，全部推送）===
     
     # 企业微信 Webhook
@@ -1533,6 +1538,9 @@ class Config:
                 minimum=1,
             ),
             agent_event_alert_rules_json=os.getenv('AGENT_EVENT_ALERT_RULES_JSON', ''),
+            position_tracker_enabled=os.getenv('POSITION_TRACKER_ENABLED', 'true').lower() == 'true',
+            trailing_stop_method=os.getenv('TRAILING_STOP_METHOD', 'breakeven'),
+            trailing_stop_trigger_pct=float(os.getenv('TRAILING_STOP_TRIGGER_PCT', '50.0')),
             wechat_webhook_url=os.getenv('WECHAT_WEBHOOK_URL'),
             feishu_webhook_url=os.getenv('FEISHU_WEBHOOK_URL'),
             feishu_webhook_secret=os.getenv('FEISHU_WEBHOOK_SECRET'),

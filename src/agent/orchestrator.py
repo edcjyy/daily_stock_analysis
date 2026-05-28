@@ -567,6 +567,20 @@ class AgentOrchestrator:
                 stats=stats,
             )
 
+        # --- Position tracker: auto-sync stop-loss/take-profit alerts ---
+        if dashboard is not None and parse_dashboard:
+            try:
+                from src.services.position_tracker import sync_stop_loss_from_dashboard
+                stock_code = ctx.meta.get("stock_code") or ctx.stock_code or ""
+                if stock_code:
+                    sync_result = sync_stop_loss_from_dashboard(stock_code, dashboard)
+                    logger.info(
+                        "[Orchestrator] position tracker sync for %s: %s",
+                        stock_code, sync_result.get("stop_loss_rule", {}).get("action"),
+                    )
+            except Exception as e:
+                logger.warning("[Orchestrator] position tracker sync failed: %s", e)
+
         return OrchestratorResult(
             success=bool(content),
             content=content,
