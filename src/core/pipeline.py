@@ -1936,7 +1936,24 @@ class StockAnalysisPipeline:
                     f"[{code}] 分析完成: {result.operation_advice}, "
                     f"评分 {result.sentiment_score}"
                 )
-                
+
+                # --- Position tracker: 自动同步止损/止盈告警规则 ---
+                if result.dashboard and isinstance(result.dashboard, dict):
+                    try:
+                        from src.services.position_tracker import sync_stop_loss_from_dashboard
+                        clean_code = code.replace(".SZ", "").replace(".SH", "")
+                        sync_result = sync_stop_loss_from_dashboard(clean_code, result.dashboard)
+                        action = sync_result.get("stop_loss_rule", {}).get("action", "skipped")
+                        if action != "skipped":
+                            logger.info(
+                                "[%s] position tracker: 止损规则 %s, 止盈规则 %s",
+                                code,
+                                sync_result.get("stop_loss_rule", {}).get("action"),
+                                sync_result.get("take_profit_rule", {}).get("action"),
+                            )
+                    except Exception as e:
+                        logger.warning("[%s] position tracker sync failed: %s", code, e)
+
                 # 单股推送模式（#55）：每分析完一只股票立即推送
                 if single_stock_notify:
                     self._send_single_stock_notification(

@@ -15,6 +15,7 @@ PositionTracker — 持仓动态跟踪 & 止损自动管理
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -88,10 +89,15 @@ class PositionTracker:
             "trailing_stop_applied": False,
         }
 
-        # 提取 sniper_points
-        battle_plan = (dashboard.get("dashboard") or {}).get("battle_plan") or {}
+        # 提取 sniper_points — 兼容两种结构：
+        #   1) pipeline 传入的是内层 dashboard（已含 battle_plan）
+        #   2) orchestrator 传入的是外层（内含 .dashboard 子键）
+        inner = dashboard
+        if "dashboard" in dashboard and isinstance(dashboard["dashboard"], dict):
+            inner = dashboard["dashboard"]
+        battle_plan = inner.get("battle_plan") or {}
         sniper = battle_plan.get("sniper_points") or {}
-        decision_type = dashboard.get("decision_type") or "hold"
+        decision_type = inner.get("decision_type") or dashboard.get("decision_type") or "hold"
 
         stop_loss = self._coerce_price(sniper.get("stop_loss"))
         take_profit = self._coerce_price(sniper.get("take_profit"))
@@ -302,7 +308,14 @@ class PositionTracker:
 
     @staticmethod
     def _coerce_price(value: Any) -> Optional[float]:
-        """将各种类型的价位值转为 float，无效则返回 None。"""
+        """将各种类型的价位值转为 float，无效则返回 None。
+
+        支持格式：
+        - 数字: 35.5, 36
+        - 纯数字字符串: "35.5"
+        - 带说明的字符串: "35.5（跌破筹码密集区下沿止损）"
+        - 范围字符串: "39.5-40.0（MA20阻力位附近）" → 取下限（第一个数字）
+        """
         if value is None:
             return None
         if isinstance(value, (int, float)):
@@ -314,7 +327,15 @@ class PositionTracker:
             try:
                 return float(s)
             except ValueError:
-                return None
+                pass
+            # 尝试从 "35.5（说明）" 或 "39.5-40.0（说明）" 提取第一个数字
+            m = re.search(r"(\d+\.?\d*)", s)
+            if m:
+                try:
+                    return float(m.group(1))
+                except ValueError:
+                    pass
+            return None
         return None
 
     @staticmethod
@@ -384,12 +405,12 @@ def sync_stop_loss_from_dashboard(
     from src.config import get_config
 
     config = get_config()
-    enabled = getattr(config, "POSITION_TRACKER_ENABLED", True)
+    enabled = getattr(config, "position_tracker_enabled", True)
     if not enabled:
         return {"action": "disabled", "stock_code": stock_code}
 
-    method = getattr(config, "TRAILING_STOP_METHOD", "breakeven")
-    trigger_pct = float(getattr(config, "TRAILING_STOP_TRIGGER_PCT", 50.0))
+    method = getattr(config, "trailing_stop_method", "breakeven")
+    trigger_pct = float(getattr(config, "trailing_stop_trigger_pct", 50.0))
 
     tracker = PositionTracker()
     return tracker.sync_from_dashboard(

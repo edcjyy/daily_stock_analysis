@@ -573,7 +573,8 @@ class AgentOrchestrator:
                 from src.services.position_tracker import sync_stop_loss_from_dashboard
                 stock_code = ctx.meta.get("stock_code") or ctx.stock_code or ""
                 if stock_code:
-                    sync_result = sync_stop_loss_from_dashboard(stock_code, dashboard)
+                    clean_code = stock_code.replace(".SZ", "").replace(".SH", "")
+                    sync_result = sync_stop_loss_from_dashboard(clean_code, dashboard)
                     logger.info(
                         "[Orchestrator] position tracker sync for %s: %s",
                         stock_code, sync_result.get("stop_loss_rule", {}).get("action"),
