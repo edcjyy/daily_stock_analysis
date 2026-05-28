@@ -653,7 +653,8 @@ class AgentOrchestrator:
 
             from src.agent.skills.skill_agent import SkillAgent
             agents = []
-            for skill_id in selected[:3]:  # cap at 3 concurrent skills
+            max_skill_count = self._get_skill_max_count()
+            for skill_id in selected[:max_skill_count]:
                 agent = self._prepare_agent(SkillAgent(
                     skill_id=skill_id,
                     **common_kwargs,
@@ -671,6 +672,16 @@ class AgentOrchestrator:
     def _build_strategy_agents(self, ctx: AgentContext) -> list:
         """Compatibility wrapper for legacy tests/imports."""
         return self._build_specialist_agents(ctx)
+
+    @staticmethod
+    def _get_skill_max_count() -> int:
+        """Read AGENT_SKILL_MAX_COUNT from config, default 3."""
+        try:
+            config = get_config()
+            raw = getattr(config, "agent_skill_max_count", 3)
+            return max(1, min(int(raw or 3), 6))
+        except (TypeError, ValueError):
+            return 3
 
     # -----------------------------------------------------------------
     # Skill aggregation
@@ -1297,6 +1308,10 @@ class AgentOrchestrator:
             score = int(sentiment_score)
         except (TypeError, ValueError):
             score = 50
+        # Preserve the original score before risk clamp so users can see
+        # the "unadjusted" assessment alongside the risk-adjusted one.
+        if "_original_sentiment_score" not in dashboard:
+            dashboard["_original_sentiment_score"] = score
         dashboard["sentiment_score"] = _adjust_sentiment_score(score, new_signal)
 
         operation_advice = dashboard.get("operation_advice")
@@ -1534,9 +1549,11 @@ def _normalize_operation_advice_value(value: Any, signal: str) -> str:
 
 
 def _confidence_label(confidence: float) -> str:
-    if confidence >= 0.75:
+    if confidence >= 0.78:
         return "高"
-    if confidence >= 0.45:
+    if confidence >= 0.55:
+        return "中高" if confidence >= 0.70 else "中"
+    if confidence >= 0.40:
         return "中"
     return "低"
 

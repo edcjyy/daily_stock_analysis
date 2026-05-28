@@ -30,6 +30,10 @@ class SkillRouter:
         ctx: AgentContext,
         max_count: int = 3,
     ) -> List[str]:
+        # Allow config override via AGENT_SKILL_MAX_COUNT
+        config_max = self._get_config_max_count()
+        if config_max is not None:
+            max_count = config_max
         requested_skills = ctx.meta.get("skills_requested") or ctx.meta.get("strategies_requested", [])
         if requested_skills:
             logger.info("[SkillRouter] user-requested skills: %s", requested_skills)
@@ -108,6 +112,20 @@ class SkillRouter:
         except Exception:
             logger.warning("Failed to get routing mode, falling back to auto", exc_info=True)
             return "auto"
+
+    @staticmethod
+    def _get_config_max_count() -> int | None:
+        """Read AGENT_SKILL_MAX_COUNT from config, returns None if not set."""
+        try:
+            from src.config import get_config
+
+            config = get_config()
+            raw = getattr(config, "agent_skill_max_count", None)
+            if raw is not None:
+                return max(1, min(int(raw), 6))
+        except (TypeError, ValueError):
+            pass
+        return None
 
     @staticmethod
     def _get_available_ids() -> set:

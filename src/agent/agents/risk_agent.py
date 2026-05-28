@@ -130,12 +130,16 @@ from your search results. Do NOT invent risks.
 
 
 def _risk_to_signal(risk_level: str) -> str:
-    """Map risk level to a trading signal (inverted)."""
+    """Map risk level to a trading signal (inverted).
+
+    medium risk -> hold (not sell): "significant concern" warrants caution
+    but not an automatic sell recommendation.  high risk -> sell.
+    """
     mapping = {
         "none": "buy",
         "low": "hold",
-        "medium": "sell",
-        "high": "strong_sell",
+        "medium": "hold",
+        "high": "sell",
     }
     return mapping.get(risk_level, "hold")
 

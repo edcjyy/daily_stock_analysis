@@ -29,9 +29,9 @@ _SIGNAL_SCORES: Dict[str, float] = {
 }
 
 _SCORE_TO_SIGNAL = [
-    (4.5, "strong_buy"),
-    (3.5, "buy"),
-    (2.5, "hold"),
+    (4.6, "strong_buy"),
+    (3.6, "buy"),
+    (2.7, "hold"),
     (1.5, "sell"),
     (0.0, "strong_sell"),
 ]
@@ -140,7 +140,7 @@ class SkillAggregator:
             summary = service.get_skill_summary(skill_id)
             if summary and summary.get("total_evaluations", 0) >= min_samples:
                 win_rate = summary.get("win_rate", 0.5)
-                return 0.5 + win_rate
+                return 0.6 + 0.8 * win_rate
         except Exception:
             logger.debug("Failed to compute backtest factor for %s", agent_name, exc_info=True)
         return 1.0
