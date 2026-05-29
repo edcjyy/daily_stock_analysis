@@ -518,7 +518,7 @@ class AgentExecutor:
             {"role": "user", "content": self._build_user_message(task, context)},
         ]
 
-        return self._run_loop(messages, tool_decls, parse_dashboard=True)
+        return self._run_loop(messages, tool_decls, parse_dashboard=True, stock_code=stock_code)
 
     def chat(self, message: str, session_id: str, progress_callback: Optional[Callable] = None, context: Optional[Dict[str, Any]] = None) -> AgentResult:
         """Execute the agent loop for a free-form chat message.
@@ -603,7 +603,7 @@ class AgentExecutor:
         # Persist the user turn immediately so the session appears in history during processing
         user_message_id = conversation_manager.add_message(session_id, "user", message)
 
-        result = self._run_loop(messages, tool_decls, parse_dashboard=False, progress_callback=progress_callback)
+        result = self._run_loop(messages, tool_decls, parse_dashboard=False, progress_callback=progress_callback, stock_code=stock_code)
 
         # Persist assistant reply (or error note) for context continuity
         if result.success:
@@ -696,7 +696,7 @@ class AgentExecutor:
                     exc_info=True,
                 )
 
-    def _run_loop(self, messages: List[Dict[str, Any]], tool_decls: List[Dict[str, Any]], parse_dashboard: bool, progress_callback: Optional[Callable] = None) -> AgentResult:
+    def _run_loop(self, messages: List[Dict[str, Any]], tool_decls: List[Dict[str, Any]], parse_dashboard: bool, progress_callback: Optional[Callable] = None, stock_code: Optional[str] = None) -> AgentResult:
         """Delegate to the shared runner and adapt the result.
 
         This preserves the exact same observable behaviour as the original
@@ -710,6 +710,7 @@ class AgentExecutor:
             max_steps=self.max_steps,
             progress_callback=progress_callback,
             max_wall_clock_seconds=self.timeout_seconds,
+            stock_code=self.stock_code or None,
         )
 
         model_str = loop_result.model
