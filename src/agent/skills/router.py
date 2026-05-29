@@ -83,6 +83,12 @@ class SkillRouter:
             raw = op.raw_data or {}
 
             ma_alignment = str(raw.get("ma_alignment", "")).lower()
+            # Fuzzy match: also accept partial/variant strings
+            if "bull" in ma_alignment:
+                ma_alignment = "bullish"
+            elif "bear" in ma_alignment:
+                ma_alignment = "bearish"
+
             try:
                 trend_score = float(raw.get("trend_score", 50))
             except (TypeError, ValueError):
