@@ -29,7 +29,7 @@ import inspect
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from src.agent.llm_adapter import LLMToolAdapter
@@ -453,7 +453,22 @@ class AgentOrchestrator:
                 self._skill_agent_names = {a.agent_name for a in specialist_agents}
                 specialist_agents_inserted = True
                 if specialist_agents:
-                    agents[index:index] = specialist_agents
+                    # Run all skill agents in parallel instead of inserting
+                    # them into the sequential pipeline one-by-one.
+                    remaining_budget = (
+                        timeout_s - (time.time() - t0)
+                        if timeout_s
+                        else None
+                    )
+                    self._run_skill_agents_parallel(
+                        specialist_agents,
+                        ctx=ctx,
+                        stats=stats,
+                        all_tool_calls=all_tool_calls,
+                        models_used=models_used,
+                        timeout_s=remaining_budget,
+                        progress_callback=progress_callback,
+                    )
                     continue
 
             # Aggregate skill opinions before the decision agent
@@ -631,6 +646,118 @@ class AgentOrchestrator:
             return [technical, intel, risk, decision]
         else:
             return [technical, intel, decision]
+
+    def _run_skill_agents_parallel(
+        self,
+        skill_agents: list,
+        *,
+        ctx: AgentContext,
+        stats,
+        all_tool_calls: list,
+        models_used: list,
+        timeout_s: Optional[float],
+        progress_callback: Optional[Callable] = None,
+    ) -> None:
+        """Run all skill agents concurrently using threads.
+
+        Each skill agent runs independently; the aggregator merges their
+        opinions later.  This replaces the original sequential loop that
+        was the single biggest bottleneck in specialist mode.
+        """
+        import concurrent.futures
+
+        agent_count = len(skill_agents)
+        if agent_count == 0:
+            return
+
+        per_agent_timeout: Optional[float] = None
+        if timeout_s:
+            # Give each agent the full remaining budget so the slowest
+            # one still has enough time.
+            per_agent_timeout = timeout_s
+
+        logger.info(
+            "[Orchestrator] running %d skill agents in parallel (timeout=%.0fs)",
+            agent_count,
+            per_agent_timeout if per_agent_timeout else 0,
+        )
+        if progress_callback:
+            progress_callback({
+                "type": "stage_start",
+                "stage": "skills",
+                "message": f"Running {agent_count} skills in parallel...",
+            })
+
+        t_skills_start = time.time()
+        agent_results: dict[str, StageResult] = {}
+        agent_ctx_map: dict[str, AgentContext] = {}
+        # Skills only depend on technical/intel/risk opinions, never on each
+        # other.  Give each agent a copy of the current opinions so it can
+        # read the technical summary, but isolate writes so skills don't
+        # race on the shared opinions list.
+        base_opinion_count = len(ctx.opinions)
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(agent_count, 8),
+        ) as pool:
+            future_to_agent: dict = {}
+            for agent in skill_agents:
+                agent_ctx = replace(ctx, opinions=list(ctx.opinions))
+                agent_ctx_map[agent.agent_name] = agent_ctx
+                future = pool.submit(
+                    self._run_stage_agent,
+                    agent,
+                    agent_ctx,
+                    progress_callback=None,
+                    timeout_seconds=per_agent_timeout,
+                )
+                future_to_agent[future] = agent
+
+            for future in concurrent.futures.as_completed(future_to_agent):
+                agent = future_to_agent[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    logger.warning(
+                        "[Orchestrator] skill '%s' raised: %s", agent.agent_name, exc,
+                    )
+                    result = StageResult(
+                        stage_name=agent.agent_name,
+                        status=StageStatus.FAILED,
+                        duration_s=time.time() - t_skills_start,
+                        meta={"error": str(exc)},
+                    )
+                agent_results[agent.agent_name] = result
+
+        for agent in skill_agents:
+            agent_name = agent.agent_name
+            result = agent_results.get(agent_name)
+            if result is None:
+                continue
+            stats.record_stage(result)
+            all_tool_calls.extend(
+                tc for tc in (result.meta.get("tool_calls_log") or [])
+            )
+            models_used.extend(result.meta.get("models_used", []))
+            # Merge only *new* opinions (the skill's own contribution),
+            # not the inherited technical/intel/risk ones.
+            skill_ctx = agent_ctx_map.get(agent_name)
+            if skill_ctx is not None:
+                new_opinions = skill_ctx.opinions[base_opinion_count:]
+                ctx.opinions.extend(new_opinions)
+
+        elapsed = time.time() - t_skills_start
+        logger.info(
+            "[Orchestrator] skills parallel complete: %d agents in %.1fs",
+            agent_count, elapsed,
+        )
+        if progress_callback:
+            progress_callback({
+                "type": "stage_done",
+                "stage": "skills",
+                "status": "success",
+                "duration": round(elapsed, 2),
+            })
 
     def _build_specialist_agents(self, ctx: AgentContext) -> list:
         """Build specialist sub-agents based on requested skills.

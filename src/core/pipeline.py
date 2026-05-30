@@ -1052,7 +1052,7 @@ class StockAnalysisPipeline:
                             success=False,
                             model=getattr(self.config, "agent_litellm_model", None),
                             call_type="agent_analysis",
-                            code=code,
+                            error_type="timeout",
                             error_message=f"LLM timeout after {llm_timeout}s",
                         )
                         return self._build_timeout_fallback(
