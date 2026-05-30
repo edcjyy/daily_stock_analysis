@@ -43,7 +43,8 @@ class AnalysisService:
         """初始化分析服务"""
         self.repo = AnalysisRepository()
         self.last_error: Optional[str] = None
-    
+        logger.info("[AnalysisService] 初始化完成")
+
     def analyze_stock(
         self,
         stock_code: str,

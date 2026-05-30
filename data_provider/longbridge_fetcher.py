@@ -276,9 +276,23 @@ def _is_valid_oauth_cache_file(token_cache: Path) -> bool:
     We avoid attempting interactive OAuth flows when the cache is missing or
     malformed, so headless jobs fail explicitly instead of hanging for manual
     re-authorization.
+
+    Also checks TTL: cache files older than LONGBRIDGE_OAUTH_CACHE_TTL_HOURS
+    (default 72h) are treated as expired.  Set to 0 to disable TTL check.
     """
     if not token_cache.exists():
         return False
+
+    # TTL check
+    ttl_hours = int(os.getenv("LONGBRIDGE_OAUTH_CACHE_TTL_HOURS", "72"))
+    if ttl_hours > 0:
+        age_seconds = time.time() - token_cache.stat().st_mtime
+        if age_seconds > ttl_hours * 3600:
+            logger.warning(
+                "[Longbridge] OAuth token 缓存已过期 (%.1fh > %dh): %s",
+                age_seconds / 3600, ttl_hours, token_cache,
+            )
+            return False
 
     try:
         raw = token_cache.read_bytes()

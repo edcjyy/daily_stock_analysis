@@ -870,6 +870,41 @@ class StockAnalysisPipeline:
         except Exception as e:
             logger.warning("[%s] Agent history prefetch failed: %s", code, e)
 
+    def _build_timeout_fallback(
+        self,
+        code: str,
+        stock_name: str,
+        realtime_quote: Any,
+        fundamental_context: Optional[Dict[str, Any]] = None,
+        trend_result: Optional[TrendAnalysisResult] = None,
+    ) -> Optional[AnalysisResult]:
+        """Build a degraded result when LLM analysis times out.
+
+        Uses available data (real-time quote + fundamentals + technical analysis)
+        to produce a basic summary without AI. The caller can retry with a longer
+        timeout or accept this fallback.
+        """
+        import uuid
+        fallback_id = f"timeout-{uuid.uuid4().hex[:8]}"
+        logger.warning(
+            "[LLM-TIMEOUT] Generating fallback report for %s (%s)", code, stock_name
+        )
+        return AnalysisResult(
+            code=code,
+            stock_name=stock_name,
+            report_type=ReportType.DETAILED,
+            report_text=(
+                f"## {stock_name}({code}) 分析摘要 (超时回退)\n\n"
+                f"⚠️ AI 分析因超时未能完成。以下为可用数据摘要：\n\n"
+                f"- 最新价: {getattr(realtime_quote, 'price', 'N/A') if realtime_quote else 'N/A'}\n"
+                f"- 技术趋势: {trend_result.trend if trend_result else 'N/A'}\n"
+                f"- 基本面: {'已加载' if fundamental_context else '未加载'}\n\n"
+                f"请稍后重试或增加 LLM_TIMEOUT_SECONDS 配置。"
+            ),
+            query_id=fallback_id,
+            raw_response={"fallback": True, "reason": "llm_timeout"},
+        )
+
     def _analyze_with_agent(
         self, 
         code: str, 
@@ -944,7 +979,31 @@ class StockAnalysisPipeline:
                 message = f"请分析股票 {code} ({stock_name})，并生成决策仪表盘报告。"
             llm_started_at = time.monotonic()
             try:
-                agent_result = executor.run(message, context=initial_context)
+                # LLM 超时保护：通过 LLM_TIMEOUT_SECONDS 环境变量控制（默认 300s）
+                import concurrent.futures
+                llm_timeout = int(os.getenv("LLM_TIMEOUT_SECONDS", "300"))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as timeout_executor:
+                    future = timeout_executor.submit(executor.run, message, context=initial_context)
+                    try:
+                        agent_result = future.result(timeout=llm_timeout)
+                    except concurrent.futures.TimeoutError:
+                        logger.error(
+                            "LLM Agent 超时 (%ds): code=%s skills=%s",
+                            llm_timeout, code, requested_skills,
+                        )
+                        record_llm_run(
+                            success=False,
+                            model=getattr(self.config, "agent_litellm_model", None),
+                            call_type="agent_analysis",
+                            code=code,
+                            error_message=f"LLM timeout after {llm_timeout}s",
+                        )
+                        return self._build_timeout_fallback(
+                            code=code, stock_name=stock_name,
+                            realtime_quote=realtime_quote,
+                            fundamental_context=fundamental_context,
+                            trend_result=trend_result,
+                        )
             except Exception as exc:
                 record_llm_run(
                     success=False,
