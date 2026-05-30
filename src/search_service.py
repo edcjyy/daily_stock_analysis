@@ -3099,15 +3099,21 @@ class SearchService:
         latest = today + timedelta(days=self.FUTURE_TOLERANCE_DAYS)
 
         filtered: List[SearchResult] = []
-        dropped_unknown = 0
+        kept_unknown_date = 0
         dropped_old = 0
         dropped_future = 0
 
         for item in response.results:
             published = self._normalize_news_publish_date(item.published_date)
             if published is None:
-                dropped_unknown += 1
-                continue
+                # Unknown date: assume recent rather than dropping.
+                # SearXNG returns results ranked by relevance + recency;
+                # an undated result is overwhelmingly likely to be within
+                # the search window.  Dropping 84% of results (observed
+                # with SearXNG) is far worse than the slight risk of an
+                # old result slipping through.
+                kept_unknown_date += 1
+                published = today
             if published < earliest:
                 dropped_old += 1
                 continue
@@ -3130,16 +3136,16 @@ class SearchService:
             if len(filtered) >= max_results:
                 break
 
-        if dropped_unknown or dropped_old or dropped_future:
+        if kept_unknown_date or dropped_old or dropped_future:
             logger.info(
-                "[新闻过滤] %s: provider=%s, total=%s, kept=%s, drop_unknown=%s, drop_old=%s, drop_future=%s, window=[%s,%s]",
+                "[新闻过滤] %s: provider=%s, total=%s, kept=%s, drop_old=%s, drop_future=%s, kept_unknown_date=%s, window=[%s,%s]",
                 log_scope,
                 response.provider,
                 len(response.results),
                 len(filtered),
-                dropped_unknown,
                 dropped_old,
                 dropped_future,
+                kept_unknown_date,
                 earliest.isoformat(),
                 latest.isoformat(),
             )
