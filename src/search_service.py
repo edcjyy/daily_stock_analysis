@@ -3495,14 +3495,14 @@ class SearchService:
             search_dimensions = [
                 {
                     'name': 'latest_news',
-                    'query': f"{stock_name} {stock_code} 最新 新闻 重大 事件",
+                    'query': f"{stock_name} {stock_code} 股价 走势 公告 业绩 最新动态",
                     'desc': '最新消息',
                     'tavily_topic': 'news',
                     'strict_freshness': True,
                 },
                 {
                     'name': 'market_analysis',
-                    'query': f"{stock_name} 研报 目标价 评级 深度分析",
+                    'query': f"{stock_name} 机构研报 目标价 评级 深度分析 投资价值",
                     'desc': '机构分析',
                     'tavily_topic': None,
                     'strict_freshness': False,
@@ -3511,7 +3511,7 @@ class SearchService:
                     'name': 'risk_check',
                     'query': (
                         f"{stock_name} 指数走势 跟踪误差 净值 表现"
-                        if is_index_etf else f"{stock_name} 减持 处罚 违规 诉讼 利空 风险"
+                        if is_index_etf else f"{stock_name} 减持 质押 处罚 违规 诉讼 利空 财务风险"
                     ),
                     'desc': '风险排查',
                     'tavily_topic': None if is_index_etf else 'news',
@@ -3521,7 +3521,7 @@ class SearchService:
                     'name': 'announcements',
                     'query': (
                         f"{stock_name} {stock_code} 公告 指数调整 成分变化"
-                        if is_index_etf else f"{stock_name} {stock_code} 公司公告 重要公告 上交所 深交所 cninfo"
+                        if is_index_etf else f"{stock_name} {stock_code} 公司公告 交易所披露 股东大会 分红"
                     ),
                     'desc': '公司公告',
                     'tavily_topic': 'news',
@@ -3531,7 +3531,7 @@ class SearchService:
                     'name': 'earnings',
                     'query': (
                         f"{stock_name} 指数成分 净值 跟踪表现"
-                        if is_index_etf else f"{stock_name} 业绩预告 财报 营收 净利润 同比增长"
+                        if is_index_etf else f"{stock_name} 业绩预告 财报 营收 净利润 同比增长 利润变化"
                     ),
                     'desc': '业绩预期',
                     'tavily_topic': None,
@@ -3541,7 +3541,7 @@ class SearchService:
                     'name': 'industry',
                     'query': (
                         f"{stock_name} 指数成分股 行业配置 权重"
-                        if is_index_etf else f"{stock_name} 所在行业 竞争对手 市场份额 行业前景"
+                        if is_index_etf else f"{stock_name} 行业分析 竞争对手 市场份额 产业链 政策影响"
                     ),
                     'desc': '行业分析',
                     'tavily_topic': None,

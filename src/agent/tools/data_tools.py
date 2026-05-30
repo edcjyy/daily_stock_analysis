@@ -10,11 +10,42 @@ Tools:
 """
 
 import logging
+import time as _time
 from datetime import date
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.agent.tools.registry import ToolParameter, ToolDefinition
+
+# ---------------------------------------------------------------------------
+# Per-session cache for expensive data-fetch operations.
+# Agent tools are called repeatedly within a single analysis session
+# (e.g. get_realtime_quote is called 7+ times per stock).  Caching
+# saves Tushare API quota and reduces latency.
+# ---------------------------------------------------------------------------
+_cache: Dict[str, Tuple[float, Any]] = {}
+_cache_lock = Lock()
+
+_REALTIME_TTL = 30.0      # realtime quote cache: 30 seconds
+_HISTORY_TTL = 120.0      # daily history cache: 2 minutes
+_ANALYSIS_TTL = 60.0      # trend/pattern analysis cache: 1 minute
+
+
+def _cached(key: str, ttl: float, factory):
+    """Return cached value if fresh, otherwise compute + cache + return."""
+    with _cache_lock:
+        now = _time.monotonic()
+        if key in _cache:
+            ts, val = _cache[key]
+            if now - ts < ttl:
+                return val
+        result = factory()
+        _cache[key] = (now, result)
+        return result
+
+
+def _cache_key(*parts: str) -> str:
+    return "|".join(str(p) for p in parts)
 
 logger = logging.getLogger(__name__)
 
@@ -233,30 +264,30 @@ def _compact_portfolio_risk(risk: dict, top_n: int = 10) -> dict:
 # ============================================================
 
 def _handle_get_realtime_quote(stock_code: str) -> dict:
-    """Get real-time stock quote."""
-    manager = _get_fetcher_manager()
-    quote = manager.get_realtime_quote(stock_code)
-    if quote is None:
+    """Get real-time stock quote (cached 30s within session)."""
+    def _fetch():
+        manager = _get_fetcher_manager()
+        quote = manager.get_realtime_quote(stock_code)
+        if quote is None:
+            return {
+                "error": f"No realtime quote available for {stock_code}",
+                "retriable": False,
+                "note": "All data sources unavailable. Skip this tool and proceed with historical data only.",
+            }
         return {
-            "error": f"No realtime quote available for {stock_code}",
-            "retriable": False,
-            "note": "All data sources unavailable (network or circuit-breaker). Skip this tool and proceed with historical data only.",
-        }
-
-    return {
-        "code": quote.code,
-        "name": quote.name,
-        "price": quote.price,
-        "change_pct": quote.change_pct,
-        "change_amount": quote.change_amount,
-        "volume": quote.volume,
-        "amount": quote.amount,
-        "volume_ratio": quote.volume_ratio,
-        "turnover_rate": quote.turnover_rate,
-        "amplitude": quote.amplitude,
-        "open": quote.open_price,
-        "high": quote.high,
-        "low": quote.low,
+            "code": quote.code,
+            "name": quote.name,
+            "price": quote.price,
+            "change_pct": quote.change_pct,
+            "change_amount": quote.change_amount,
+            "volume": quote.volume,
+            "amount": quote.amount,
+            "volume_ratio": quote.volume_ratio,
+            "turnover_rate": quote.turnover_rate,
+            "amplitude": quote.amplitude,
+            "open": quote.open_price,
+            "high": quote.high,
+            "low": quote.low,
         "pre_close": quote.pre_close,
         "pe_ratio": quote.pe_ratio,
         "pb_ratio": quote.pb_ratio,
@@ -265,6 +296,12 @@ def _handle_get_realtime_quote(stock_code: str) -> dict:
         "change_60d": quote.change_60d,
         "source": quote.source.value if hasattr(quote.source, 'value') else str(quote.source),
     }
+
+    return _cached(
+        _cache_key("realtime", stock_code),
+        _REALTIME_TTL,
+        _fetch,
+    )
 
 
 get_realtime_quote_tool = ToolDefinition(
@@ -288,57 +325,57 @@ get_realtime_quote_tool = ToolDefinition(
 # ============================================================
 
 def _handle_get_daily_history(stock_code: str, days: int = 60) -> dict:
-    """Get daily OHLCV history data."""
+    """Get daily OHLCV history data (cached 2min within session)."""
     effective_days, metadata = _normalize_history_days(days)
 
-    from src.services.history_loader import load_history_df
-    df, source = load_history_df(stock_code, days=effective_days)
+    def _fetch():
+        from src.services.history_loader import load_history_df
+        df, source = load_history_df(stock_code, days=effective_days)
 
-    if df is None or df.empty:
-        return _append_history_metadata(
-            {"error": f"No historical data available for {stock_code}"},
-            metadata,
-        )
+        if df is None or df.empty:
+            return {"error": f"No historical data available for {stock_code}"}
 
-    if source != "db_cache":
-        _, normalized_code = _history_code_candidates(stock_code)
-        try:
-            saved_count = _get_db().save_daily_data(df, normalized_code, source)
-            logger.info(
-                "Agent daily history persisted for %s (source=%s, new_records=%s)",
-                normalized_code,
-                source,
-                saved_count,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Agent daily history persistence failed for %s: %s",
-                normalized_code,
-                exc,
-            )
+        if source != "db_cache":
+            _, normalized_code = _history_code_candidates(stock_code)
+            try:
+                saved_count = _get_db().save_daily_data(df, normalized_code, source)
+                logger.info(
+                    "Agent daily history persisted for %s (source=%s, new_records=%s)",
+                    normalized_code, source, saved_count,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Agent daily history persistence failed for %s: %s",
+                    normalized_code, exc,
+                )
 
-    # Convert DataFrame to list of dicts (last N records)
-    records = df.tail(min(effective_days, len(df))).to_dict(orient="records")
-    # Ensure date is string
-    for r in records:
-        if "date" in r:
-            r["date"] = str(r["date"])
+        records = df.tail(min(effective_days, len(df))).to_dict(orient="records")
+        for r in records:
+            if "date" in r:
+                r["date"] = str(r["date"])
 
-    response_code = stock_code
-    if source == "db_cache" and records:
-        response_code = records[-1].get("code") or response_code
+        response_code = stock_code
+        if source == "db_cache" and records:
+            response_code = records[-1].get("code") or response_code
 
-    return _append_history_metadata({
-        "code": response_code,
-        "source": source,
-        "cache_hit": source == "db_cache",
-        "requested_days": effective_days,
-        "effective_days": effective_days,
-        "actual_records": len(records),
-        "partial_cache": source == "db_cache" and len(records) < effective_days,
-        "total_records": len(records),
-        "data": records,
-    }, metadata)
+        return {
+            "code": response_code,
+            "source": source,
+            "cache_hit": source == "db_cache",
+            "requested_days": effective_days,
+            "effective_days": effective_days,
+            "actual_records": len(records),
+            "partial_cache": source == "db_cache" and len(records) < effective_days,
+            "total_records": len(records),
+            "data": records,
+        }
+
+    result = _cached(
+        _cache_key("daily", stock_code, str(effective_days)),
+        _HISTORY_TTL,
+        _fetch,
+    )
+    return _append_history_metadata(result, metadata)
 
 
 get_daily_history_tool = ToolDefinition(
