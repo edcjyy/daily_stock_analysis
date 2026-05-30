@@ -9,6 +9,9 @@ Tools:
 import logging
 from typing import Optional
 
+from src.agent.tools.data_tools import (
+    _cached, _cache_key, _HISTORY_TTL, _ANALYSIS_TTL, _get_fetcher_manager,
+)
 from src.agent.tools.registry import ToolParameter, ToolDefinition
 
 logger = logging.getLogger(__name__)
@@ -23,7 +26,15 @@ def _fetch_trend_data(stock_code: str):
 
 
 def _handle_analyze_trend(stock_code: str) -> dict:
-    """Run technical trend analysis on a stock."""
+    """Run technical trend analysis on a stock (cached 60s)."""
+    return _cached(
+        _cache_key("trend", stock_code),
+        _ANALYSIS_TTL,
+        lambda: _analyze_trend_impl(stock_code),
+    )
+
+
+def _analyze_trend_impl(stock_code: str) -> dict:
     from src.stock_analyzer import StockTrendAnalyzer
 
     if not (stock_code and str(stock_code).strip()):
@@ -104,7 +115,15 @@ analyze_trend_tool = ToolDefinition(
 # ============================================================
 
 def _handle_calculate_ma(stock_code: str, periods: Optional[str] = None, days: int = 120) -> dict:
-    """Calculate moving averages for arbitrary periods from historical K-line data."""
+    """Calculate moving averages (cached 120s)."""
+    return _cached(
+        _cache_key("ma", stock_code, str(periods or "def"), str(days)),
+        _HISTORY_TTL,
+        lambda: _calc_ma_impl(stock_code, periods, days),
+    )
+
+
+def _calc_ma_impl(stock_code: str, periods: Optional[str], days: int) -> dict:
     from src.services.history_loader import load_history_df
 
     df, source = load_history_df(stock_code, days=days)
@@ -195,6 +214,15 @@ calculate_ma_tool = ToolDefinition(
 # ============================================================
 
 def _handle_get_volume_analysis(stock_code: str, days: int = 30) -> dict:
+    """Volume analysis (cached 60s)."""
+    return _cached(
+        _cache_key("vol", stock_code, str(days)),
+        _ANALYSIS_TTL,
+        lambda: _vol_analysis_impl(stock_code, days),
+    )
+
+
+def _vol_analysis_impl(stock_code: str, days: int) -> dict:
     """Analyse volume-price patterns over recent trading days."""
     from src.services.history_loader import load_history_df
     import pandas as pd
@@ -311,6 +339,15 @@ get_volume_analysis_tool = ToolDefinition(
 # ============================================================
 
 def _handle_analyze_pattern(stock_code: str, days: int = 60) -> dict:
+    """Pattern analysis (cached 60s)."""
+    return _cached(
+        _cache_key("pattern", stock_code, str(days)),
+        _ANALYSIS_TTL,
+        lambda: _pattern_impl(stock_code, days),
+    )
+
+
+def _pattern_impl(stock_code: str, days: int) -> dict:
     """Detect common candlestick and chart patterns in recent price history."""
     from src.services.history_loader import load_history_df
 

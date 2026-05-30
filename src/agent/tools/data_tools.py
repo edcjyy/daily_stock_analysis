@@ -406,7 +406,15 @@ get_daily_history_tool = ToolDefinition(
 # ============================================================
 
 def _handle_get_chip_distribution(stock_code: str) -> dict:
-    """Get chip distribution data."""
+    """Get chip distribution data (cached 120s)."""
+    return _cached(
+        _cache_key("chip", stock_code),
+        _HISTORY_TTL,
+        lambda: _chip_impl(stock_code),
+    )
+
+
+def _chip_impl(stock_code: str) -> dict:
     manager = _get_fetcher_manager()
     chip = manager.get_chip_distribution(stock_code)
 

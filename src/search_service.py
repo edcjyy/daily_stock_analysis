@@ -2262,6 +2262,9 @@ class SearchService:
         self._cache_inflight: Dict[str, threading.Event] = {}
         # Default cache TTL in seconds (10 minutes)
         self._cache_ttl: int = 600
+        # Provider circuit breaker: auto-skip providers that fail N times consecutively
+        self._provider_fail_count: Dict[str, int] = {}
+        self._provider_circuit_threshold = 3  # trips after 3 consecutive failures
         logger.info(
             "新闻时效策略已启用: profile=%s, profile_days=%s, NEWS_MAX_AGE_DAYS=%s, effective_window=%s",
             self.news_strategy_profile,
@@ -3317,6 +3320,8 @@ class SearchService:
             for provider in self._providers:
                 if not provider.is_available:
                     continue
+                if self._provider_fail_count.get(provider.name, 0) >= self._provider_circuit_threshold:
+                    continue  # circuit breaker open
 
                 search_kwargs: Dict[str, Any] = {}
                 if isinstance(provider, TavilySearchProvider):
@@ -3377,6 +3382,7 @@ class SearchService:
                             provider.name,
                             stats["direct_count"],
                         )
+                        self._provider_fail_count[provider.name] = 0  # reset on success
                         self._put_cache(cache_key, limited_response)
                         self._save_persist_cache(cache_key, stock_code, limited_response)
                         return limited_response
@@ -3415,10 +3421,11 @@ class SearchService:
                             provider.name,
                         )
                     else:
+                        fail_cnt = self._provider_fail_count.get(provider.name, 0) + 1
+                        self._provider_fail_count[provider.name] = fail_cnt
                         logger.warning(
-                            "%s 搜索失败: %s，尝试下一个引擎",
-                            provider.name,
-                            response.error_message,
+                            "%s 搜索失败 (连续失败%s次): %s，尝试下一个引擎",
+                            provider.name, fail_cnt, response.error_message,
                         )
 
             if best_ranked_response is not None:
@@ -3654,8 +3661,12 @@ class SearchService:
             if search_count >= max_searches:
                 break
             
-            # 选择搜索引擎（轮流使用）
-            available_providers = [p for p in self._providers if p.is_available]
+            # 选择搜索引擎（轮流使用），跳过已触发的断路器
+            available_providers = [
+                p for p in self._providers
+                if p.is_available
+                and self._provider_fail_count.get(p.name, 0) < self._provider_circuit_threshold
+            ]
             if not available_providers:
                 break
             
@@ -3701,6 +3712,7 @@ class SearchService:
             search_count += 1
             
             if response.success:
+                self._provider_fail_count[provider.name] = 0  # reset on success
                 logger.info(
                     "[情报搜索] %s: 原始=%s条, 过滤后=%s条",
                     dim['desc'],
@@ -3708,7 +3720,12 @@ class SearchService:
                     len(filtered_response.results),
                 )
             else:
-                logger.warning(f"[情报搜索] {dim['desc']}: 搜索失败 - {response.error_message}")
+                fail_cnt = self._provider_fail_count.get(provider.name, 0) + 1
+                self._provider_fail_count[provider.name] = fail_cnt
+                logger.warning(
+                    "[情报搜索] %s: 搜索失败 (连续失败%s次) - %s",
+                    dim['desc'], fail_cnt, response.error_message,
+                )
             
             # 短暂延迟避免请求过快
             time.sleep(0.5)
