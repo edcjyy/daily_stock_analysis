@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-# AnalysisContextPack：P0 盘点与 P1 内部契约
-
-本页是 Issue #1389 的专题文档，用于记录当前 DSA 分析上下文的真实来源、消费路径、字段状态边界，以及 P1 `AnalysisContextPack` 内部契约。P0 负责现状盘点和契约边界；P1 只新增内部 schema/envelope、block catalog、类型约定和脱敏序列化，不新增 builder 或 runtime 接入。
-=======
 # AnalysisContextPack：P0 盘点、P1/P2 契约、P3 Runtime Consumption 与 P4 可见性
 
 本页是 Issue #1389 的专题文档，用于记录当前 DSA 分析上下文的真实来源、消费路径、字段状态边界，以及 `AnalysisContextPack` 内部契约、builder、运行态消费与低敏可见性边界。P0 负责现状盘点和契约边界；P1 只新增内部 schema/envelope、block catalog、类型约定和脱敏序列化；P2 只从 pipeline 已有 artifacts 组装 pack；P3 只把低敏摘要接入普通分析和 Agent 初始 Prompt；P4 只把低敏 overview 接入历史详情、同步分析响应、completed task status 和 Web 报告页。
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 
 ## 术语与边界
 
@@ -99,8 +93,6 @@ P2 block 组装边界：
 
 P2 不组装 `portfolio`、`events`、`market_context`，也不把 `capital_flow` 拆成独立 block；首版只把它保留在 fundamentals 的 coverage/source chain metadata 中。P2 也不改变 Prompt、不让普通分析或 Agent runtime 消费 pack、不写入 history/task/report metadata、不暴露完整 pack 到 API/Web/Bot/Desktop/通知，不做 P5 data-quality scoring、`fetch_failed` 细分或模型置信度限制。
 
-<<<<<<< HEAD
-=======
 ## P3 Runtime Consumption
 
 P3 在 P2 `AnalysisContextBuilder` 之后接入运行态消费，但消费面限定为低敏 `analysis_context_pack_summary`。`StockAnalysisPipeline` 是 summary 的唯一生产者：在普通分析路径和 Agent 路径内完成 `PipelineAnalysisArtifacts` -> `AnalysisContextBuilder.build()` -> `format_analysis_context_pack_prompt_section()`，下游 analyzer、single-agent、multi-agent 只接收 summary 字符串，不自行构造完整 pack，也不读取 `AnalysisContextPack.to_safe_dict()` 的 block item 原始值。
@@ -129,7 +121,6 @@ API 返回给 Web 的 `details.context_snapshot` 会通过 `sanitize_context_sna
 
 P4 Web 展示只在报告详情页渲染 `AnalysisContextSummary`，位置在运行诊断之后、策略点位之前，内容包括数据块状态 badge、来源、warning、missing reason、状态计数和新闻结果数。无 overview 时不渲染占位。P4 不覆盖 pending/processing TaskPanel 或 SSE 进行中可见性，不改通知摘要、Bot/Desktop 专属展示、`market_review` overview、P5 数据质量评分或 `fetch_failed` 细分。
 
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 ## 字段质量状态
 
 未来 pack 的字段质量状态在 P0 只固定下列七词。它们描述字段或数据块的质量，不描述业务流程是否成功。

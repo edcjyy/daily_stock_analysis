@@ -26,11 +26,8 @@ def test_analysis_context_pack_doc_has_required_sections() -> None:
         "## P0 范围与非目标",
         "## P1 内部契约",
         "## P2 Builder 契约",
-<<<<<<< HEAD
-=======
         "## P3 Runtime Consumption",
         "## P4 历史记录、任务状态与 Web 可见性",
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
         "## 字段质量状态",
         "## 现有状态映射",
         "## 七路径盘点",
@@ -229,8 +226,6 @@ def test_analysis_context_pack_doc_defines_p2_builder_boundaries() -> None:
         assert token in section
 
 
-<<<<<<< HEAD
-=======
 def test_analysis_context_pack_doc_defines_p3_runtime_consumption_boundaries() -> None:
     section = _section(_read_doc(), "P3 Runtime Consumption")
 
@@ -286,7 +281,6 @@ def test_analysis_context_pack_doc_defines_p4_visibility_contract() -> None:
         assert token in section
 
 
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 def test_analysis_context_pack_doc_maps_existing_status_terms() -> None:
     section = _section(_read_doc(), "现有状态映射")
 
@@ -333,17 +327,6 @@ def test_analysis_context_pack_doc_updates_indexes_and_changelog() -> None:
     index_en = (PROJECT_ROOT / "docs" / "INDEX_EN.md").read_text(encoding="utf-8")
     changelog = (PROJECT_ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
 
-<<<<<<< HEAD
-    assert "[分析上下文包 P0/P1 契约](analysis-context-pack.md)" in index
-    assert (
-        "[Analysis Context Pack P0/P1 Contract](analysis-context-pack.md) "
-        "<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-red?style=flat)</sub></sub> "
-        "(Chinese-only)"
-    ) in index_en
-    assert "[文档] 新增 AnalysisContextPack P0 上下文盘点" in changelog
-    assert "[新功能] 新增 AnalysisContextPack P1 内部契约与脱敏序列化测试" in changelog
-    assert "[新功能] 新增 AnalysisContextPack P2 builder" in changelog
-=======
     assert "[分析上下文包契约、运行态消费与可见性](analysis-context-pack.md)" in index
     assert "P1/P2 内部契约、P3 Prompt 摘要消费、P4 历史/API/Web 低敏可见性" in index
     assert (
@@ -376,4 +359,3 @@ def test_full_guides_clarify_pack_summary_does_not_replace_legacy_payload_channe
     assert "`report.details.analysis_context_pack_overview`" in guide_en
     assert "completed `/api/v1/analysis/status/{task_id}`" in guide_en
     assert "API `details.context_snapshot` strips the top-level `analysis_context_pack_overview`" in guide_en
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))

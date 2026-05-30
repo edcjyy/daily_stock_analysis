@@ -756,8 +756,6 @@ P2-min 开始在已获得 `market_phase_context` 的分析路径中，把运行�
 
 P2-min 仍不新增 API/Web/Bot 参数，不写入 history/task status/report metadata，不改变报告 JSON schema，也不引入完整 quote freshness、fallback、stale 或 data_quality 契约。Bot/API 直连 Agent 若未经过 P1a pipeline 构建 `market_phase_context`，仍保持旧行为；入口透传和可见展示留给后续 P4+。
 
-<<<<<<< HEAD
-=======
 #### AnalysisContextPack Prompt 摘要（Issue #1389 P3）
 
 P3 在普通分析和 Agent 初始上下文中接入 `AnalysisContextPack` 低敏摘要。Pipeline 会用已获取的行情、日线、趋势、筹码、基本面、新闻和市场阶段 artifacts 组装 pack，再把 `analysis_context_pack_summary` 插入 Prompt；在这个新增的 pack 摘要区块中，LLM 只看到 subject、版本、各数据块的状态/来源/warning/missing reason 和新闻结果数，不会通过该区块看到完整 `news.content`、`trend_result`、筹码或基本面原始 payload。既有 `news_context`、Agent pre-fetched JSON 和 `enhanced_context` 原始数据通道保持 P3 前行为，不由本摘要替代或脱敏。
@@ -770,7 +768,6 @@ P4 新增 `report.details.analysis_context_pack_overview`，历史详情、同�
 
 该 overview 不包含完整 pack、`analysis_context_pack_summary` Prompt 字符串、`items.value`、新闻正文、`trend_result`、筹码或基本面原始 payload。`SAVE_CONTEXT_SNAPSHOT=false` 或旧历史记录缺少 overview 时字段为空，报告仍正常返回。本阶段不覆盖 pending/processing TaskPanel、SSE 进行中事件、通知摘要、Bot/Desktop 专属展示、`market_review` overview 或 P5 数据质量评分。
 
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 #### 使用 Crontab
 
 如果不想使用常驻进程，也可以使用系统的 Cron：

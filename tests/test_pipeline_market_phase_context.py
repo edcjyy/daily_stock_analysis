@@ -135,6 +135,114 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
             current_time=frozen_time,
         )
 
+    def test_legacy_analysis_artifacts_helper_maps_full_pipeline_fields(self):
+        pipeline = _make_pipeline(agent_mode=False, save_context_snapshot=True)
+        pipeline.query_source = "api"
+        phase = _phase_payload()
+        context = {"code": "600519", "today": {"close": 1800.0}, "yesterday": {}}
+        enhanced_context = {"realtime": {"price": 1888.0}, "stock_name": "贵州茅台"}
+        realtime_quote = {"price": 1888.0, "source": "test"}
+        trend_result = {"ma_trend": "up"}
+        chip_data = {"concentration": "medium"}
+        fundamental_context = {"market": "cn", "pe": 28}
+        news_context = "news summary"
+
+        artifacts = pipeline._build_legacy_analysis_artifacts(
+            code="600519",
+            stock_name="贵州茅台",
+            market="cn",
+            phase=phase,
+            context=context,
+            enhanced_context=enhanced_context,
+            realtime_quote=realtime_quote,
+            trend_result=trend_result,
+            chip_data=chip_data,
+            fundamental_context=fundamental_context,
+            news_context=news_context,
+            news_result_count=3,
+            query_id="q-legacy",
+        )
+
+        self.assertEqual(artifacts.code, "600519")
+        self.assertEqual(artifacts.stock_name, "贵州茅台")
+        self.assertEqual(artifacts.market, "cn")
+        self.assertIs(artifacts.phase, phase)
+        self.assertIs(artifacts.base_context, context)
+        self.assertIs(artifacts.enhanced_context, enhanced_context)
+        self.assertIs(artifacts.realtime_quote, realtime_quote)
+        self.assertIs(artifacts.trend_result, trend_result)
+        self.assertIs(artifacts.chip_data, chip_data)
+        self.assertIs(artifacts.fundamental_context, fundamental_context)
+        self.assertEqual(artifacts.news_context, news_context)
+        self.assertEqual(artifacts.news_result_count, 3)
+        self.assertEqual(
+            artifacts.metadata,
+            {"query_id": "q-legacy", "trigger_source": "api"},
+        )
+
+    def test_agent_analysis_artifacts_helper_maps_initial_context_zero_fetch(self):
+        pipeline = _make_pipeline(agent_mode=True, save_context_snapshot=True)
+        pipeline.query_source = "system"
+        phase = _phase_payload()
+        realtime_quote = {"price": 1888.0, "source": "test"}
+        trend_result = {"ma_trend": "up"}
+        chip_distribution = {"concentration": "medium"}
+        fundamental_context = {"market": "cn", "pe": 28}
+        initial_context = {
+            "realtime_quote": realtime_quote,
+            "trend_result": trend_result,
+            "chip_distribution": chip_distribution,
+            "news_context": "prefetched news",
+        }
+
+        artifacts = pipeline._build_agent_analysis_artifacts(
+            code="600519",
+            stock_name="贵州茅台",
+            market="cn",
+            phase=phase,
+            initial_context=initial_context,
+            fundamental_context=fundamental_context,
+            query_id="q-agent",
+        )
+
+        self.assertEqual(artifacts.code, "600519")
+        self.assertEqual(artifacts.stock_name, "贵州茅台")
+        self.assertEqual(artifacts.market, "cn")
+        self.assertIs(artifacts.phase, phase)
+        self.assertEqual(
+            artifacts.base_context,
+            {
+                "code": "600519",
+                "stock_name": "贵州茅台",
+                "data_missing": True,
+                "today": {},
+                "yesterday": {},
+            },
+        )
+        self.assertNotIn("date", artifacts.base_context)
+        self.assertEqual(artifacts.enhanced_context, {})
+        self.assertIs(artifacts.realtime_quote, realtime_quote)
+        self.assertIs(artifacts.trend_result, trend_result)
+        self.assertIs(artifacts.chip_data, chip_distribution)
+        self.assertIs(artifacts.fundamental_context, fundamental_context)
+        self.assertEqual(artifacts.news_context, "prefetched news")
+        self.assertIsNone(artifacts.news_result_count)
+        self.assertEqual(
+            artifacts.metadata,
+            {"query_id": "q-agent", "trigger_source": "system"},
+        )
+
+        artifacts_without_chip = pipeline._build_agent_analysis_artifacts(
+            code="600519",
+            stock_name="贵州茅台",
+            market="cn",
+            phase=phase,
+            initial_context={},
+            fundamental_context=fundamental_context,
+            query_id="q-agent-no-chip",
+        )
+        self.assertIsNone(artifacts_without_chip.chip_data)
+
     def test_legacy_pipeline_passes_market_phase_context_to_analyzer_only(self):
         pipeline = _make_pipeline(agent_mode=False, save_context_snapshot=True)
         phase_payload = _phase_payload()
@@ -152,13 +260,14 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
         mock_build.assert_called_once()
         enhanced_context = pipeline.analyzer.analyze.call_args.args[0]
         self.assertEqual(enhanced_context["market_phase_context"], phase_payload)
+        analyze_kwargs = pipeline.analyzer.analyze.call_args.kwargs
+        self.assertIn("分析上下文包摘要", analyze_kwargs["analysis_context_pack_summary"])
+        self.assertIn("日线: missing", analyze_kwargs["analysis_context_pack_summary"])
 
         save_kwargs = pipeline.db.save_analysis_history.call_args.kwargs
         self.assertTrue(save_kwargs["save_snapshot"])
         snapshot = save_kwargs["context_snapshot"]
         self.assertNotIn("market_phase_context", snapshot["enhanced_context"])
-<<<<<<< HEAD
-=======
         self.assertNotIn("analysis_context_pack_summary", snapshot["enhanced_context"])
         self.assertIn("analysis_context_pack_overview", snapshot)
         self.assertEqual(snapshot["analysis_context_pack_overview"]["subject"]["code"], "600519")
@@ -195,7 +304,6 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
         )
         save_kwargs = pipeline.db.save_analysis_history.call_args.kwargs
         self.assertNotIn("analysis_context_pack_overview", save_kwargs["context_snapshot"])
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 
     def test_agent_legacy_context_gets_runtime_key_but_history_snapshot_strips_it(self):
         pipeline = _make_pipeline(agent_mode=True, save_context_snapshot=True)
@@ -235,15 +343,13 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
         self.assertIsNotNone(result)
         run_context = executor.run.call_args.kwargs["context"]
         self.assertEqual(run_context["market_phase_context"], phase_payload)
+        self.assertIn("analysis_context_pack_summary", run_context)
+        self.assertIn("分析上下文包摘要", run_context["analysis_context_pack_summary"])
+        self.assertIn("新闻: missing", run_context["analysis_context_pack_summary"])
 
         save_kwargs = pipeline.db.save_analysis_history.call_args.kwargs
         self.assertTrue(save_kwargs["save_snapshot"])
         self.assertNotIn("market_phase_context", save_kwargs["context_snapshot"])
-<<<<<<< HEAD
-        enhanced_context = save_kwargs["context_snapshot"]["enhanced_context"]
-        self.assertEqual(enhanced_context["stock_name"], "贵州茅台")
-
-=======
         self.assertNotIn("analysis_context_pack_summary", save_kwargs["context_snapshot"])
         self.assertIn("analysis_context_pack_overview", save_kwargs["context_snapshot"])
         self.assertEqual(
@@ -364,7 +470,6 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
         save_kwargs = pipeline.db.save_analysis_history.call_args.kwargs
         self.assertNotIn("analysis_context_pack_overview", save_kwargs["context_snapshot"])
 
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
     def test_agent_history_snapshot_contains_diagnostics_context_when_active(self):
         pipeline = _make_pipeline(agent_mode=True, save_context_snapshot=True)
         pipeline._ensure_agent_history = MagicMock()
@@ -411,11 +516,8 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
             self.assertTrue(save_kwargs["save_snapshot"])
             snapshot = save_kwargs["context_snapshot"]
             self.assertIn("diagnostics", snapshot)
-<<<<<<< HEAD
-=======
             self.assertNotIn("analysis_context_pack_summary", snapshot)
             self.assertIn("analysis_context_pack_overview", snapshot)
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
             diagnostics = snapshot["diagnostics"]
             self.assertIsNotNone(diagnostics)
             self.assertEqual(diagnostics["trace_id"], "trace-agent")

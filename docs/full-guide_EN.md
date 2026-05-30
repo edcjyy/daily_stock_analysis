@@ -633,8 +633,6 @@ P2-min starts rendering the runtime market phase into an LLM-readable prompt sec
 
 P2-min still does not add API/Web/Bot parameters, persist phase into history/task status/report metadata, change report JSON schemas, or introduce the full quote freshness, fallback, stale, or data-quality contract. Bot/API direct Agent entrypoints that do not go through the P1a pipeline to build `market_phase_context` keep their previous behavior; entrypoint propagation and visible labels are left to later P4+ work.
 
-<<<<<<< HEAD
-=======
 ### AnalysisContextPack Prompt Summary (Issue #1389 P3)
 
 P3 injects a low-sensitivity `AnalysisContextPack` summary into regular analysis and Agent initial prompts. The pipeline builds the pack from already-fetched quote, daily-bar, trend, chip, fundamentals, news, and market-phase artifacts, then passes `analysis_context_pack_summary` downstream; in this new pack-summary section, the LLM only sees subject, version, data-block status/source/warnings/missing reason, and news result count, not full `news.content`, `trend_result`, chip, or fundamentals raw payloads through that section. Existing `news_context`, Agent pre-fetched JSON, and `enhanced_context` raw-payload channels keep their pre-P3 behavior and are not replaced or sanitized by this summary.
@@ -647,7 +645,6 @@ P4 adds `report.details.analysis_context_pack_overview`. History detail, sync an
 
 The overview does not include the full pack, the `analysis_context_pack_summary` prompt string, `items.value`, news body text, `trend_result`, chip, or fundamentals raw payloads. When `SAVE_CONTEXT_SNAPSHOT=false` or older history records lack the overview, the field is empty and the report still loads. This phase does not cover pending/processing TaskPanel, in-progress SSE events, notification summaries, Bot/Desktop-specific rendering, `market_review` overview, or P5 data-quality scoring.
 
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 ---
 
 ## Notification Channel Configuration

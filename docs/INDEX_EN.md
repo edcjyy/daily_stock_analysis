@@ -43,11 +43,7 @@ This is the entry point for project documentation. The README covers the project
 | [Bot Commands (EN)](bot-command_EN.md) | Bot commands, webhooks, platform integration, and callback behavior |
 | [Bot Platform Docs](bot/) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | Feishu, DingTalk, Discord, and related Bot configuration screenshots and notes |
 | [Real-Time Alert Center](alerts.md) <sub><sub>![P4 Badge](https://img.shields.io/badge/P4-yellow?style=flat)</sub></sub> (Chinese-only) | EventMonitor baseline, Web rule management, notification attempts, cooldown state, and phase boundaries |
-<<<<<<< HEAD
-| [Analysis Context Pack P0/P1 Contract](analysis-context-pack.md) <sub><sub>![P1 Badge](https://img.shields.io/badge/P1-red?style=flat)</sub></sub> (Chinese-only) | AnalysisContextPack first-scope boundaries, field quality states, P1 internal schema, and source anchors |
-=======
 | [Analysis Context Pack Contract, Runtime Consumption, And Visibility](analysis-context-pack.md) <sub><sub>![P4 Badge](https://img.shields.io/badge/P4-orange?style=flat)</sub></sub> (Chinese-only) | AnalysisContextPack first-scope boundaries, field quality states, P1/P2 internal contracts, P3 prompt-summary consumption, P4 history/API/Web low-sensitivity visibility, and source anchors |
->>>>>>> 0295f9d (feat: expose analysis context pack overview (#1515))
 | [Image Extraction Prompt](image-extract-prompt.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | Prompt and boundaries for extracting stock information from images |
 | [OpenClaw Skill Integration](openclaw-skill-integration.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | OpenClaw / Skill external integration notes |
 
