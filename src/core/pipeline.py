@@ -1938,18 +1938,28 @@ class StockAnalysisPipeline:
         fundamental_context: Optional[Dict[str, Any]],
         query_id: str,
     ) -> PipelineAnalysisArtifacts:
+        # Fetch actual daily bar context from DB instead of hardcoding
+        # data_missing=True.  _ensure_agent_history(code) was already called
+        # before this point, so the data is guaranteed to exist if available.
+        base_context = self.db.get_analysis_context(code) or {
+            "code": code,
+            "stock_name": stock_name,
+            "data_missing": True,
+            "today": {},
+            "yesterday": {},
+        }
+        # News is searched inside the agent during execution, not before.
+        # Mark it as not-attempted rather than missing.
+        if not initial_context.get("news_context"):
+            initial_context = dict(initial_context)
+            initial_context["news_context"] = "[由 Agent 在分析过程中动态搜索]"
+
         return PipelineAnalysisArtifacts(
             code=code,
             stock_name=stock_name,
             market=market,
             phase=phase,
-            base_context={
-                "code": code,
-                "stock_name": stock_name,
-                "data_missing": True,
-                "today": {},
-                "yesterday": {},
-            },
+            base_context=base_context,
             enhanced_context={},
             realtime_quote=initial_context.get("realtime_quote"),
             trend_result=initial_context.get("trend_result"),

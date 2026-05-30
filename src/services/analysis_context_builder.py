@@ -363,11 +363,15 @@ def _build_news_block(artifacts: PipelineAnalysisArtifacts) -> AnalysisContextBl
         metadata["news_result_count"] = artifacts.news_result_count
 
     if not content:
+        # Agent mode searches news dynamically during execution,
+        # so an empty artifact at this point means "not yet attempted",
+        # not "missing."
         return AnalysisContextBlock(
             status=ContextFieldStatus.MISSING,
             items={
                 "content": AnalysisContextItem(
                     status=ContextFieldStatus.MISSING,
+                    value=None,
                     missing_reason="news_context_missing",
                 )
             },
