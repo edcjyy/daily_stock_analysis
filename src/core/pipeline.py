@@ -18,6 +18,7 @@ import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
+import os
 from typing import List, Dict, Any, Optional, Tuple, Callable
 
 import pandas as pd
