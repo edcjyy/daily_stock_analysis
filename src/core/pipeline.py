@@ -1069,7 +1069,6 @@ class StockAnalysisPipeline:
                 )
                 raise
 
-            # 转换为 AnalysisResult
             result = self._agent_result_to_analysis_result(
                 agent_result,
                 code,
@@ -1078,6 +1077,7 @@ class StockAnalysisPipeline:
                 query_id,
                 trend_result=trend_result,
             )
+
             record_llm_run(
                 success=bool(result and getattr(result, "success", True)),
                 model=getattr(result, "model_used", None) if result else getattr(agent_result, "model", None),
@@ -1126,6 +1126,7 @@ class StockAnalysisPipeline:
 
             # 保存新闻情报到数据库（Agent 工具结果仅用于 LLM 上下文，未持久化，Fixes #396）
             # 使用 search_stock_news（与 Agent 工具调用逻辑一致），仅 1 次 API 调用，无额外延迟
+            agent_news_count: Optional[int] = None
             if self.search_service is not None and self.search_service.is_available:
                 try:
                     news_response = self.search_service.search_stock_news(
@@ -1143,7 +1144,8 @@ class StockAnalysisPipeline:
                             response=news_response,
                             query_context=query_context
                         )
-                        logger.info(f"[{code}] Agent 模式: 新闻情报已保存 {len(news_response.results)} 条")
+                        agent_news_count = len(news_response.results)
+                        logger.info(f"[{code}] Agent 模式: 新闻情报已保存 {agent_news_count} 条")
                 except Exception as e:
                     logger.warning(f"[{code}] Agent 模式保存新闻情报失败: {e}")
 
@@ -1156,6 +1158,7 @@ class StockAnalysisPipeline:
                             "stock_name": resolved_stock_name,
                         },
                         news_content=initial_context.get("news_context"),
+                        news_result_count=agent_news_count,
                         realtime_quote=realtime_quote,
                         chip_data=chip_data,
                         analysis_context_pack_overview=analysis_context_pack_overview,
