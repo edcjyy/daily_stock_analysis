@@ -2480,6 +2480,59 @@ class SearchService:
                         self._cache.pop(k, None)
             self._cache[key] = (time.time(), response)
 
+    # ------------------------------------------------------------------
+    # Persistent (SQLite) cache — survives process restart, 24h TTL
+    # ------------------------------------------------------------------
+    def _get_persist_db(self):
+        """Lazy-init SQLite for persistent search cache."""
+        if not hasattr(self, '_persist_conn'):
+            import sqlite3
+            from pathlib import Path
+            db_path = Path("data") / "search_cache.db"
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS search_cache ("
+                "  cache_key TEXT PRIMARY KEY,"
+                "  response_json TEXT NOT NULL,"
+                "  stock_code TEXT NOT NULL,"
+                "  query_date TEXT NOT NULL,"
+                "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                ")"
+            )
+            conn.commit()
+            self._persist_conn = conn
+        return self._persist_conn
+
+    def _load_persist_cache(self, cache_key: str) -> Optional['SearchResponse']:
+        """Try loading a cached search result from SQLite (24h TTL)."""
+        try:
+            conn = self._get_persist_db()
+            row = conn.execute(
+                "SELECT response_json FROM search_cache "
+                "WHERE cache_key = ? AND query_date = date('now')",
+                (cache_key,),
+            ).fetchone()
+            if row:
+                return SearchResponse.model_validate_json(row[0])
+        except Exception:
+            pass
+        return None
+
+    def _save_persist_cache(self, cache_key: str, stock_code: str, response: 'SearchResponse') -> None:
+        """Save search result to SQLite with today's date."""
+        try:
+            conn = self._get_persist_db()
+            conn.execute(
+                "INSERT OR REPLACE INTO search_cache (cache_key, response_json, stock_code, query_date) "
+                "VALUES (?, ?, ?, date('now'))",
+                (cache_key, response.model_dump_json(), stock_code),
+            )
+            conn.commit()
+        except Exception as e:
+            logger.debug("Persist cache save failed (non-critical): %s", e)
+
     def _effective_news_window_days(self) -> int:
         """Resolve effective news window from strategy profile and global max-age."""
         return resolve_news_window_days(
@@ -3216,6 +3269,7 @@ class SearchService:
             max_results,
             search_days,
         )
+        # 1. In-memory cache (fastest)
         cached, cache_owner, cache_event = self._get_cached_or_reserve(cache_key)
         if cached is not None:
             logger.info(f"使用缓存搜索结果: {stock_name}({stock_code})")
@@ -3230,6 +3284,13 @@ class SearchService:
             if cached is not None:
                 logger.info(f"使用等待后命中的缓存搜索结果: {stock_name}({stock_code})")
                 return cached
+
+        # 2. Persistent cache (SQLite, 24h TTL across restarts)
+        persist_cached = self._load_persist_cache(cache_key)
+        if persist_cached is not None:
+            logger.info(f"使用持久化缓存搜索结果: {stock_name}({stock_code})")
+            self._put_cache(cache_key, persist_cached)  # warm in-memory
+            return persist_cached
 
         try:
             # 依次尝试各个搜索引擎（若过滤后为空，继续尝试下一引擎）
@@ -3300,6 +3361,7 @@ class SearchService:
                             stats["direct_count"],
                         )
                         self._put_cache(cache_key, limited_response)
+                        self._save_persist_cache(cache_key, stock_code, limited_response)
                         return limited_response
 
                     if prefer_chinese and stats["direct_count"] > 0:
@@ -3344,6 +3406,7 @@ class SearchService:
 
             if best_ranked_response is not None:
                 self._put_cache(cache_key, best_ranked_response)
+                self._save_persist_cache(cache_key, stock_code, best_ranked_response)
                 return best_ranked_response
 
             if had_provider_success:

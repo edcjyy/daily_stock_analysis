@@ -123,6 +123,7 @@ class StockAnalysisPipeline:
         )
         self.progress_callback = progress_callback
         self.analysis_skills = list(analysis_skills) if analysis_skills is not None else None
+        self._stock_name_cache: Dict[str, str] = {}  # code → name, per-session cache
         
         # 初始化各模块
         self.db = get_db()
@@ -231,8 +232,9 @@ class StockAnalysisPipeline:
         """
         stock_name = code
         try:
-            # 首先获取股票名称
+            # 首先获取股票名称（缓存到 session 级别，避免 analyze_stock 重复调用）
             stock_name = self.fetcher_manager.get_stock_name(code, allow_realtime=False)
+            self._stock_name_cache[code] = stock_name
 
             target_date = self._resolve_resume_target_date(
                 code, current_time=current_time
@@ -302,8 +304,9 @@ class StockAnalysisPipeline:
             market_phase_context_dict = market_phase_context.to_dict()
 
             self._emit_progress(18, f"{code}：正在获取行情与筹码数据")
-            # 获取股票名称（先走轻量名称路径，后续若 realtime_quote 有 name 再覆盖）
-            stock_name = self.fetcher_manager.get_stock_name(code, allow_realtime=False)
+            # 获取股票名称（优先使用 session 缓存，避免与 fetch_and_save_stock_data 重复调用）
+            stock_name = self._stock_name_cache.get(code) or self.fetcher_manager.get_stock_name(code, allow_realtime=False)
+            self._stock_name_cache[code] = stock_name
 
             # Step 1: 获取实时行情（量比、换手率等）- 使用统一入口，自动故障切换
             realtime_quote = None
