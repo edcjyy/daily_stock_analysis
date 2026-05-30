@@ -87,6 +87,7 @@ class Scheduler:
         self._task_callback: Optional[Callable] = None
         self._daily_job: Optional[Any] = None
         self._background_tasks: List[Dict[str, Any]] = []
+        self._bg_lock = threading.Lock()
         self._running = False
 
     def set_daily_task(self, task: Callable, run_immediately: bool = True):
@@ -216,7 +217,8 @@ class Scheduler:
         }
         if not run_immediately:
             entry["last_run"] = time.time()
-        self._background_tasks.append(entry)
+        with self._bg_lock:
+            self._background_tasks.append(entry)
         logger.info(
             "已注册后台任务: %s（间隔 %s 秒，立即执行=%s）",
             entry["name"],
@@ -228,9 +230,6 @@ class Scheduler:
 
     def _start_background_task(self, entry: Dict[str, Any]) -> bool:
         """Start one background task in a dedicated daemon thread."""
-        worker = entry.get("thread")
-        if worker is not None and worker.is_alive():
-            return False
 
         def _runner() -> None:
             try:
@@ -242,32 +241,42 @@ class Scheduler:
                 entry["running"] = False
                 entry["thread"] = None
 
-        entry["last_run"] = time.time()
-        entry["running"] = True
-        worker = threading.Thread(
-            target=_runner,
-            daemon=True,
-            name=f"scheduler-bg-{entry['name']}",
-        )
-        entry["thread"] = worker
+        with self._bg_lock:
+            worker = entry.get("thread")
+            if worker is not None and worker.is_alive():
+                return False
+
+            entry["last_run"] = time.time()
+            entry["running"] = True
+            worker = threading.Thread(
+                target=_runner,
+                daemon=True,
+                name=f"scheduler-bg-{entry['name']}",
+            )
+            entry["thread"] = worker
         worker.start()
         return True
 
     def _run_background_tasks(self) -> None:
         """Execute any background tasks whose interval has elapsed."""
-        if not self._background_tasks:
-            return
+        with self._bg_lock:
+            if not self._background_tasks:
+                return
 
-        now = time.time()
-        for entry in self._background_tasks:
-            worker = entry.get("thread")
-            if worker is not None and worker.is_alive():
-                continue
-            if entry.get("running"):
-                entry["running"] = False
-                entry["thread"] = None
-            if now - entry["last_run"] < entry["interval_seconds"]:
-                continue
+            now = time.time()
+            tasks_to_start: list[Dict[str, Any]] = []
+            for entry in self._background_tasks:
+                worker = entry.get("thread")
+                if worker is not None and worker.is_alive():
+                    continue
+                if entry.get("running"):
+                    entry["running"] = False
+                    entry["thread"] = None
+                if now - entry["last_run"] < entry["interval_seconds"]:
+                    continue
+                tasks_to_start.append(entry)
+
+        for entry in tasks_to_start:
             self._start_background_task(entry)
 
     def run(self):

@@ -87,7 +87,9 @@ function formatSignedPct(value: number | undefined | null): string {
 }
 
 function hasPositionPrice(row: PortfolioPositionItem): boolean {
-  return row.priceAvailable !== false && row.priceSource !== 'missing';
+  return row.priceAvailable !== false
+    && row.priceSource !== 'missing'
+    && row.lastPrice != null;
 }
 
 function formatPositionPrice(row: PortfolioPositionItem): string {

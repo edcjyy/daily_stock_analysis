@@ -265,7 +265,10 @@ export const useAgentChatStore = create<AgentChatState & AgentChatActions>((set,
 
     try {
       const response = await agentApi.chatStream(payload, { signal: ac.signal });
-      const reader = response.body!.getReader();
+      if (!response.body) {
+        throw new Error('Chat stream response has no readable body');
+      }
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
       let finalContent: string | null = null;
