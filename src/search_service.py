@@ -2508,6 +2508,7 @@ class SearchService:
     def _load_persist_cache(self, cache_key: str) -> Optional['SearchResponse']:
         """Try loading a cached search result from SQLite (24h TTL)."""
         try:
+            import json as _json
             conn = self._get_persist_db()
             row = conn.execute(
                 "SELECT response_json FROM search_cache "
@@ -2515,7 +2516,15 @@ class SearchService:
                 (cache_key,),
             ).fetchone()
             if row:
-                return SearchResponse.model_validate_json(row[0])
+                data = _json.loads(row[0])
+                return SearchResponse(
+                    query=data.get("query", ""),
+                    results=[SearchResult(**r) for r in data.get("results", [])],
+                    provider=data.get("provider", ""),
+                    success=data.get("success", True),
+                    error_message=data.get("error_message"),
+                    search_time=data.get("search_time", 0.0),
+                )
         except Exception:
             pass
         return None
@@ -2523,11 +2532,13 @@ class SearchService:
     def _save_persist_cache(self, cache_key: str, stock_code: str, response: 'SearchResponse') -> None:
         """Save search result to SQLite with today's date."""
         try:
+            import json as _json
+            from dataclasses import asdict
             conn = self._get_persist_db()
             conn.execute(
                 "INSERT OR REPLACE INTO search_cache (cache_key, response_json, stock_code, query_date) "
                 "VALUES (?, ?, ?, date('now'))",
-                (cache_key, response.model_dump_json(), stock_code),
+                (cache_key, _json.dumps(asdict(response), ensure_ascii=False), stock_code),
             )
             conn.commit()
         except Exception as e:
