@@ -499,7 +499,15 @@ get_analysis_context_tool = ToolDefinition(
 # ============================================================
 
 def _handle_get_stock_info(stock_code: str) -> dict:
-    """Get stock fundamental information through unified fundamental context."""
+    """Get stock fundamental information (cached 300s — expensive AkShare calls)."""
+    return _cached(
+        _cache_key("stock_info", stock_code),
+        300.0,  # 5 min — fundamental data changes slowly
+        lambda: _stock_info_impl(stock_code),
+    )
+
+
+def _stock_info_impl(stock_code: str) -> dict:
     manager = _get_fetcher_manager()
     try:
         fundamental_context = manager.get_fundamental_context(stock_code)
