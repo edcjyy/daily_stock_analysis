@@ -1560,21 +1560,30 @@ class SystemConfigService:
 
     @staticmethod
     def _parse_imported_env_content(content: str) -> List[Dict[str, str]]:
-        """Parse raw `.env` text into update items using current dotenv semantics."""
+        """Parse raw `.env` text into update items using current dotenv semantics.
+
+        Only keys registered in the config registry are accepted; unknown keys
+        are silently dropped to prevent injection of arbitrary environment
+        variables (e.g. PYTHONPATH, LD_PRELOAD).
+        """
         normalized_content = content.replace("\ufeff", "")
         if not normalized_content.strip():
             raise ConfigImportError("未识别到有效 .env 配置")
 
         from dotenv import dotenv_values
 
+        registered_keys = {k.upper() for k in get_registered_field_keys()}
         parsed = dotenv_values(stream=io.StringIO(normalized_content))
         updates: List[Dict[str, str]] = []
         for key, value in parsed.items():
             if key is None:
                 continue
+            key_upper = str(key).upper()
+            if key_upper not in registered_keys:
+                continue  # silently drop unknown / unregistered keys
             updates.append(
                 {
-                    "key": str(key).upper(),
+                    "key": key_upper,
                     "value": "" if value is None else str(value),
                 }
             )
