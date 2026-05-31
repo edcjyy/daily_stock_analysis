@@ -1045,8 +1045,8 @@ class DataFetcherManager:
         """
         # Process-level cache: avoid re-initialising fetchers on every
         # DataFetcherManager instance, which happens per tool call.
-        if _init_default_fetchers._cache is not None:
-            self._fetchers = list(_init_default_fetchers._cache)
+        if DataFetcherManager._init_default_fetchers._cache is not None:
+            self._fetchers = list(DataFetcherManager._init_default_fetchers._cache)
             return
         # Default priority: Efinance(P0) > Akshare(P1) > Pytdx(P2) > Baostock(P3) > Yfinance(P4)
         from src.config import get_config
@@ -1110,7 +1110,7 @@ class DataFetcherManager:
         # 构建优先级说明
         priority_info = ", ".join([f"{f.name}(P{f.priority})" for f in self._get_fetchers_snapshot()])
         logger.info(f"已初始化 {len(self._fetchers)} 个数据源（按优先级）: {priority_info}")
-        _init_default_fetchers._cache = list(self._fetchers)
+        DataFetcherManager._init_default_fetchers._cache = list(self._fetchers)
     
 
     def add_fetcher(self, fetcher: BaseFetcher) -> None:
@@ -3116,4 +3116,4 @@ class DataFetcherManager:
 
 
 # Module-level cache for fetcher initialisation (see _init_default_fetchers).
-_init_default_fetchers._cache = None
+DataFetcherManager._init_default_fetchers._cache = None
