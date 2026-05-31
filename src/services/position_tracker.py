@@ -99,6 +99,16 @@ class PositionTracker:
         sniper = battle_plan.get("sniper_points") or {}
         decision_type = inner.get("decision_type") or dashboard.get("decision_type") or "hold"
 
+        # For sell recommendations, position_tracker rules are meaningless.
+        # The user is advised NOT to hold, so stop-loss/take-profit levels
+        # are already below market and would trigger immediately or mislead.
+        if decision_type == "sell":
+            logger.info(
+                "[PositionTracker] %s decision_type=sell, skipping stop/take rules",
+                stock_code,
+            )
+            return result
+
         stop_loss = self._coerce_price(sniper.get("stop_loss"))
         take_profit = self._coerce_price(sniper.get("take_profit"))
         ideal_buy = self._coerce_price(sniper.get("ideal_buy"))
