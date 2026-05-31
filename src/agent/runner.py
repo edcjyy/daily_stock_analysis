@@ -399,7 +399,10 @@ def run_agent_loop(
     # Detect repetitive identical tool calls (same name + same args).
     # After 3 consecutive identical calls the tool output is very likely
     # stale / cached with 0 new records — short-circuit to break loops.
+    # The counter resets whenever the agent calls a *different* tool,
+    # so legitimate re-use after fresh data is not penalised.
     _dupe_counter: dict[tuple[str, str], int] = {}
+    _prev_tool_names: set[str] = set()
     _DUPE_THRESHOLD = 3
 
     start_time = time.time()
@@ -584,6 +587,12 @@ def run_agent_loop(
                     tool_wait_timeout_seconds=effective_tool_timeout,
                 )
                 tool_results.extend(dupe_results)
+                # Reset dupe counter when the agent moves to new tools —
+                # this prevents penalising legitimate re-use after fresh data.
+                cur_names = {tc.name for tc in filtered_calls}
+                if cur_names != _prev_tool_names:
+                    _dupe_counter.clear()
+                _prev_tool_names = cur_names
             else:
                 tool_results = dupe_results
 
