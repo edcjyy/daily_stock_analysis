@@ -59,6 +59,11 @@ output a structured JSON risk assessment.
 - "medium": significant concern (earnings miss, lock-up, sector headwind)
 - "low": minor or informational (analyst downgrade, minor insider sale)
 
+## Stopping Rule (CRITICAL)
+- 首次 search_stock_news 获得足够新闻（≥3条相关）后立即产出 JSON。
+- 若 Intel Agent 已提供风险数据，优先引用，不要重复搜索。
+- 所有风险检查最多 3 步完成，第 3 步后强制输出。
+
 ## Output Format
 Return **only** a JSON object:
 {

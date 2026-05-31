@@ -60,6 +60,12 @@ class SkillAgent(BaseAgent):
             instructions = f"Evaluate the '{self.skill_id}' skill."
             display = self.skill_id
 
+        max_s = getattr(self, "max_steps", 4)
+        step_rule = (
+            f"最多 {max_s} 步内必须产出 JSON opinion。"
+            f"第 {max_s - 1} 步仍不满足 → 输出 hold / confidence ≤ 0.3。" 
+        )
+
         return f"""\
 You are a **Skill Evaluation Agent** applying the **{display}** skill.
 
@@ -69,6 +75,12 @@ You are a **Skill Evaluation Agent** applying the **{display}** skill.
 ## Task
 Evaluate whether the current stock conditions satisfy this skill's entry
 criteria. Use tools if needed to verify data points.
+
+## Step Constraint (CRITICAL)
+- {step_rule}
+- 每次工具调用前判断"是否已有足够数据做判断"。
+- 同一数据查询 2 次后已有结果即为充分，无需再查。
+- 优先引用 Technical Agent 提供的摘要，减少重复工具调用。
 
 ## Output Format
 Return **only** a JSON object:

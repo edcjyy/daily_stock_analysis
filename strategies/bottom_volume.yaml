@@ -9,6 +9,7 @@ core_rules: [2, 5]
 required_tools:
   - get_daily_history
   - analyze_trend
+  - search_stock_news
 aliases: [地量见底, 底部放量]
 default_priority: 60
 market_regimes: [trending_down]
