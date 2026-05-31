@@ -115,12 +115,14 @@ class PositionTracker:
 
         # --- 止损规则 ---
         if stop_loss and stop_loss > 0:
+            extra = {"ideal_buy": ideal_buy} if ideal_buy and ideal_buy > 0 else {}
             result["stop_loss_rule"] = self._upsert_price_cross_rule(
                 stock_code=stock_code,
                 direction="below",
                 price=stop_loss,
                 name=f"[{stock_code}] 止损 @ {stop_loss}",
                 description=STOP_LOSS_DESC.format(price=stop_loss),
+                extra_params=extra,
             )
             logger.info(
                 "[PositionTracker] %s 止损规则 %s: price=%.2f",
@@ -241,6 +243,7 @@ class PositionTracker:
         price: float,
         name: str,
         description: str,
+        extra_params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """创建或更新一条 price_cross 告警规则。
 
@@ -261,6 +264,8 @@ class PositionTracker:
             if params.get("direction") == direction:
                 # 更新已有规则
                 new_params = dict(params, price=price)
+                if extra_params:
+                    new_params.update(extra_params)
                 self.alert_service.update_rule(rule["id"], {
                     "parameters": json.dumps(new_params, ensure_ascii=False),
                     "description": description,
@@ -281,6 +286,7 @@ class PositionTracker:
                 "parameters": {
                     "direction": direction,
                     "price": price,
+                    **(extra_params or {}),
                 },
                 "enabled": True,
                 "source": SOURCE_TAG,
@@ -350,9 +356,21 @@ class PositionTracker:
 
     @staticmethod
     def _extract_ideal_buy_from_rule(rule: Dict[str, Any]) -> Optional[float]:
-        """尝试从规则描述或关联数据中提取 ideal_buy 价格。"""
-        # 暂时无法从规则自身获取 ideal_buy（AlertService 不存储额外 meta）
-        # 后续可考虑扩展 alert rules 表增加 meta JSON 字段
+        """从规则 parameters JSON 中提取 ideal_buy 价格。
+
+        ideal_buy 在 sync_from_dashboard 创建规则时写入 parameters，
+        持续化到 AlertService 后，update_trailing_stops 可以恢复使用。
+        """
+        try:
+            params = json.loads(rule.get("parameters") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if isinstance(params, dict):
+            try:
+                val = float(params.get("ideal_buy", 0))
+                return val if val > 0 else None
+            except (TypeError, ValueError):
+                return None
         return None
 
     @staticmethod
