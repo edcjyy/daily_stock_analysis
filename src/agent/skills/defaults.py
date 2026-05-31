@@ -137,14 +137,17 @@ def _detect_regime_from_trend(trend_result: Optional[dict]) -> Optional[str]:
         pass
     vol = str(trend_result.get("volume_status", "")).lower()
 
-    if any(k in ts for k in ("strong_bull", "bull")) and score >= 60:
-        return "trending_up"
-    if any(k in ts for k in ("bear", "strong_bear")) and score <= 40:
-        return "trending_down"
-    if any(k in ts for k in ("consolidation", "weak_bull", "weak_bear")):
+    # Match both Chinese (TrendStatus.value) and English keywords.
+    # Check "weak" variants FIRST — "弱势多头" contains "多头" but is
+    # sideways, not trending_up.  Same for "弱势空头".
+    if any(k in ts for k in ("consolidation", "weak_bull", "weak_bear", "盘整", "弱势多头", "弱势空头")):
         if "heavy" in vol:
             return "volatile"
         return "sideways"
+    if any(k in ts for k in ("strong_bull", "bull", "强势多头", "多头")) and score >= 60:
+        return "trending_up"
+    if any(k in ts for k in ("bear", "strong_bear", "强势空头", "空头")) and score <= 40:
+        return "trending_down"
     return None
 
 
