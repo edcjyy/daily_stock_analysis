@@ -106,8 +106,14 @@ Return **only** a JSON object (no markdown fences):
         """Parse the JSON opinion from the LLM response."""
         parsed = try_parse_json(raw_text)
         if parsed is None:
-            logger.warning("[TechnicalAgent] failed to parse opinion JSON")
-            return None
+            logger.warning("[TechnicalAgent] failed to parse opinion JSON, using fallback hold")
+            return AgentOpinion(
+                agent_name=self.agent_name,
+                signal="hold",
+                confidence=0.3,
+                reasoning=f"Technical JSON parse failed. Raw: {raw_text[:150]}",
+                key_levels={"support": 0.0, "resistance": 0.0, "stop_loss": 0.0},
+            )
 
         return AgentOpinion(
             agent_name=self.agent_name,

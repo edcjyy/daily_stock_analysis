@@ -202,25 +202,24 @@ class AgentOrchestrator:
     def _prepare_agent(self, agent: Any) -> Any:
         """Apply orchestrator-level runtime settings to a child agent.
 
-        When the orchestrator-level ``max_steps`` equals the default
-        (``AGENT_MAX_STEPS_DEFAULT``),
-        each agent keeps its own per-agent limit — this prevents inflating
-        a decision agent (designed for 3 steps) to 10 steps.
-
-        When the user **explicitly** raises the global limit above the
-        default, all agents adopt the global value so the user's intent to
-        allow more steps is respected.
-
-        When the user **lowers** the global limit below an agent's default,
-        the agent is capped at the global value.
+        Skill agents always use their own tight per-agent limit (max 4 steps).
+        For non-skill agents: when the user explicitly raises the global limit
+        above the default, all non-skill agents adopt the global value.
+        When the user lowers the global limit, agents are capped.
         """
-        if hasattr(agent, "max_steps"):
-            if self.max_steps > AGENT_MAX_STEPS_DEFAULT:
-                # User explicitly raised the limit — apply to all agents.
-                agent.max_steps = self.max_steps
-            else:
-                # Default or lowered — keep per-agent limit as ceiling.
-                agent.max_steps = min(agent.max_steps, self.max_steps)
+        if not hasattr(agent, "max_steps"):
+            return agent
+
+        # Skill / strategy agents must stay within their tight evaluation
+        # window regardless of the global AGENT_MAX_STEPS setting.
+        from src.agent.skills.skill_agent import SkillAgent
+        if isinstance(agent, SkillAgent):
+            return agent
+
+        if self.max_steps > AGENT_MAX_STEPS_DEFAULT:
+            agent.max_steps = self.max_steps
+        else:
+            agent.max_steps = min(agent.max_steps, self.max_steps)
         return agent
 
     def _callable_accepts_timeout_kwarg(self, func: Any) -> Optional[bool]:

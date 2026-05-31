@@ -108,8 +108,14 @@ Return **only** a JSON object:
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
         parsed = try_parse_json(raw_text)
         if parsed is None:
-            logger.warning("[IntelAgent] failed to parse opinion JSON")
-            return None
+            logger.warning("[IntelAgent] failed to parse opinion JSON, using fallback neutral")
+            return AgentOpinion(
+                agent_name=self.agent_name,
+                signal="hold",
+                confidence=0.3,
+                reasoning=f"Intel JSON parse failed. Raw: {raw_text[:150]}",
+                raw_data={"risk_alerts": [], "positive_catalysts": [], "sentiment_label": "neutral"},
+            )
 
         # Cache parsed intel so downstream agents (especially RiskAgent) can
         # reuse it instead of re-searching the same evidence.

@@ -131,8 +131,14 @@ from your search results. Do NOT invent risks.
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
         parsed = try_parse_json(raw_text)
         if parsed is None:
-            logger.warning("[RiskAgent] failed to parse risk JSON")
-            return None
+            logger.warning("[RiskAgent] failed to parse risk JSON, using fallback hold")
+            return AgentOpinion(
+                agent_name=self.agent_name,
+                signal="hold",
+                confidence=0.3,
+                reasoning=f"Risk JSON parse failed. Raw: {raw_text[:150]}",
+                raw_data={"risk_level": "low", "risk_score": 30, "flags": [], "veto_buy": False},
+            )
 
         # Propagate structured risk flags to context
         for flag in parsed.get("flags", []):

@@ -133,8 +133,14 @@ Return **only** a JSON object:
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
         parsed = try_parse_json(raw_text)
         if parsed is None:
-            logger.warning("[SkillAgent:%s] failed to parse opinion JSON", self.skill_id)
-            return None
+            logger.warning("[SkillAgent:%s] failed to parse opinion JSON, using fallback hold", self.skill_id)
+            return AgentOpinion(
+                agent_name=self.agent_name,
+                signal="hold",
+                confidence=0.3,
+                reasoning=f"[{self.skill_id}] LLM output was not valid JSON. "
+                           f"Raw: {raw_text[:150]}",
+            )
 
         return AgentOpinion(
             agent_name=self.agent_name,
