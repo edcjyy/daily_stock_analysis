@@ -716,7 +716,10 @@ class AgentOrchestrator:
             for future in concurrent.futures.as_completed(future_to_agent):
                 agent = future_to_agent[future]
                 try:
-                    result = future.result()
+                    # Outer timeout as last-resort guard: agent-level
+                    # timeout should fire first; this prevents permanent
+                    # blocking if the inner timeout is ignored.
+                    result = future.result(timeout=(per_agent_timeout or 600) + 30)
                 except Exception as exc:
                     logger.warning(
                         "[Orchestrator] skill '%s' raised: %s", agent.agent_name, exc,

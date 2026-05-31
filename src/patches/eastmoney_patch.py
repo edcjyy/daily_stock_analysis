@@ -172,8 +172,8 @@ def eastmoney_patch():
         if nid:
             headers["Cookie"] = f"nid18={nid}"
         kwargs["headers"] = headers
-        # 随机休眠，降低被封风险
-        sleep_time = random.uniform(1, 4)
+        # Session-level rate limiting (reduced from 1-4s to 0.5-1.5s)
+        sleep_time = random.uniform(0.5, 1.5)
         time.sleep(sleep_time)
         return original_request(self, method, url, **kwargs)
 

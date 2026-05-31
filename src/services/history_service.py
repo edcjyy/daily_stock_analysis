@@ -444,7 +444,13 @@ class HistoryService:
             return []
 
         # Narrow down to same-stock recent news, then filter by analysis time window.
-        days = max(1, (datetime.now() - analysis.created_at).days + 1)
+        # Cap the DB scan window to prevent full-table scans on very old records.
+        cfg = get_config()
+        window_days = resolve_news_window_days(
+            news_max_age_days=getattr(cfg, "news_max_age_days", 3),
+            news_strategy_profile=getattr(cfg, "news_strategy_profile", "short"),
+        )
+        days = min(max(1, (datetime.now() - analysis.created_at).days + 1), window_days + 7)
         candidates = self.db.get_recent_news(code=analysis.code, days=days, limit=max(limit * 5, 50))
 
         start_time = analysis.created_at - timedelta(hours=6)
@@ -454,13 +460,8 @@ class HistoryService:
             if item.fetched_at and start_time <= item.fetched_at <= end_time
         ]
 
-        # 历史兜底链路也做发布时间硬过滤，避免旧库脏数据重新冒出。
-        cfg = get_config()
-        window_days = resolve_news_window_days(
-            news_max_age_days=getattr(cfg, "news_max_age_days", 3),
-            news_strategy_profile=getattr(cfg, "news_strategy_profile", "short"),
-        )
-        # Anchor to analysis date instead of "today" to preserve historical context.
+        # Hard-filter by published date to prevent stale news from surfacing.
+        # (cfg / window_days resolved above for DB scan cap.)
         anchor_date = analysis.created_at.date()
         latest_allowed = anchor_date + timedelta(days=1)
         earliest_allowed = anchor_date - timedelta(days=max(0, window_days - 1))
