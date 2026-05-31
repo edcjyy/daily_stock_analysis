@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class SkillAgent(BaseAgent):
     """Agent that evaluates a single trading skill for a stock."""
 
-    max_steps = 4
+    max_steps = 6
 
     def __init__(self, skill_id: Optional[str] = None, strategy_id: Optional[str] = None, **kwargs):
         super().__init__(**kwargs)
@@ -60,7 +60,7 @@ class SkillAgent(BaseAgent):
             instructions = f"Evaluate the '{self.skill_id}' skill."
             display = self.skill_id
 
-        max_s = getattr(self, "max_steps", 4)
+        max_s = getattr(self, "max_steps", 6)
         step_rule = (
             f"最多 {max_s} 步内必须产出 JSON opinion。"
             f"第 {max_s - 1} 步仍不满足 → 输出 hold / confidence ≤ 0.3。" 

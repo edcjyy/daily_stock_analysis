@@ -971,6 +971,7 @@ def get_analysis_status(
                     operation_advice=record.operation_advice,
                     trend_prediction=record.trend_prediction,
                     analysis_summary=record.analysis_summary,
+                    decision_type=raw_result.get("decision_type") if isinstance(raw_result, dict) else None,
                 ),
                 strategy=ReportStrategy(
                     ideal_buy=_stringify_report_strategy_value(getattr(record, 'ideal_buy', None)),
@@ -1123,12 +1124,20 @@ def _build_analysis_report(
         model_used=normalize_model_used(meta_data.get("model_used")),
     )
 
+    # Try to get decision_type from summary or details.raw_result
+    decision_type = summary_data.get("decision_type")
+    if not decision_type:
+        raw_result = details_data.get("raw_result")
+        if isinstance(raw_result, dict):
+            decision_type = raw_result.get("decision_type")
+
     summary = ReportSummary(
         analysis_summary=summary_data.get("analysis_summary"),
         operation_advice=summary_data.get("operation_advice"),
         trend_prediction=summary_data.get("trend_prediction"),
         sentiment_score=summary_data.get("sentiment_score"),
-        sentiment_label=summary_data.get("sentiment_label")
+        sentiment_label=summary_data.get("sentiment_label"),
+        decision_type=decision_type,
     )
 
     strategy = None

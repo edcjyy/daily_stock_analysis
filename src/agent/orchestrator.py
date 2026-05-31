@@ -202,7 +202,7 @@ class AgentOrchestrator:
     def _prepare_agent(self, agent: Any) -> Any:
         """Apply orchestrator-level runtime settings to a child agent.
 
-        Skill agents always use their own tight per-agent limit (max 4 steps).
+        Skill agents always use their own tight per-agent limit (max 6 steps).
         For non-skill agents: when the user explicitly raises the global limit
         above the default, all non-skill agents adopt the global value.
         When the user lowers the global limit, agents are capped.

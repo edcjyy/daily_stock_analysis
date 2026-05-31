@@ -29,6 +29,7 @@ class HistoryItem(BaseModel):
         description="情绪评分（历史数据可能超出 0-100 范围，读取时不做约束）",
     )
     operation_advice: Optional[str] = Field(None, description="操作建议")
+    decision_type: Optional[str] = Field(None, description="决策类型：buy/hold/sell")
     current_price: Optional[float] = Field(None, description="分析时股价")
     change_pct: Optional[float] = Field(None, description="分析时涨跌幅(%)")
     volume_ratio: Optional[float] = Field(None, description="分析时量比")
@@ -48,6 +49,7 @@ class HistoryItem(BaseModel):
             "report_type": "detailed",
             "sentiment_score": 75,
             "operation_advice": "持有",
+            "decision_type": "buy",
             "created_at": "2024-01-01T12:00:00"
         }
     })
@@ -144,6 +146,7 @@ class ReportSummary(BaseModel):
         description="情绪评分（历史数据可能超出 0-100 范围，读取时不做约束）",
     )
     sentiment_label: Optional[str] = Field(None, description="情绪标签")
+    decision_type: Optional[str] = Field(None, description="决策类型：buy/hold/sell")
 
 
 class ReportStrategy(BaseModel):

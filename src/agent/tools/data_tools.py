@@ -710,7 +710,18 @@ def _handle_get_capital_flow(stock_code: str) -> dict:
     sector_rankings = data.get("sector_rankings") or {}
     errors = ctx.get("errors") or []
 
-    return {
+    # If stock_flow is empty (API returned structure but no data), clearly
+    # signal this to the LLM so it doesn't waste steps retrying.
+    has_flow_data = any(
+        v is not None
+        for v in (stock_flow.get("main_net_inflow"),
+                  stock_flow.get("inflow_5d"),
+                  stock_flow.get("inflow_10d"),
+                  stock_flow.get("super_large_net_inflow"),
+                  stock_flow.get("large_net_inflow"))
+    )
+
+    result = {
         "stock_code": stock_code,
         "status": status,
         "main_net_inflow": stock_flow.get("main_net_inflow"),
@@ -722,6 +733,17 @@ def _handle_get_capital_flow(stock_code: str) -> dict:
         },
         "errors": errors,
     }
+
+    if not has_flow_data:
+        result["note"] = (
+            "⚠️ Stock-level capital flow data is NOT available for this stock. "
+            "Do NOT retry this tool — the data source cannot provide this "
+            "information.  Proceed with your analysis using other data dimensions "
+            "(technical indicators, news, fundamentals, etc.)."
+        )
+        logger.info("get_capital_flow: empty stock_flow for %s", stock_code)
+
+    return result
 
 
 get_capital_flow_tool = ToolDefinition(

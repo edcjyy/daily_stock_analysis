@@ -403,7 +403,7 @@ def run_agent_loop(
     # so legitimate re-use after fresh data is not penalised.
     _dupe_counter: dict[tuple[str, str], int] = {}
     _prev_tool_names: set[str] = set()
-    _DUPE_THRESHOLD = 3
+    _DUPE_THRESHOLD = 2
 
     start_time = time.time()
     tool_calls_log: List[Dict[str, Any]] = []

@@ -71,6 +71,7 @@ export interface ReportSummary {
   trendPrediction: string;
   sentimentScore: number;
   sentimentLabel?: SentimentLabel;
+  decisionType?: string;
 }
 
 /** Strategy section */
@@ -304,6 +305,7 @@ export interface HistoryItem {
   analysisSummary?: string;
   sentimentScore?: number;
   operationAdvice?: string;
+  decisionType?: string;
   currentPrice?: number;
   changePct?: number;
   volumeRatio?: number;

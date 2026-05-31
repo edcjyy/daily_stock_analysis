@@ -72,7 +72,15 @@ const formatAdviceParts = (item: Pick<HistoryItem, 'operationAdvice' | 'trendPre
 const formatAdvice = (item: Pick<HistoryItem, 'operationAdvice' | 'trendPrediction'>): string =>
   formatAdviceParts(item)[0];
 
-const getAdviceVariant = (value: string): 'success' | 'warning' | 'danger' | 'default' => {
+const getAdviceVariant = (item: HistoryItem): 'success' | 'warning' | 'danger' | 'default' => {
+  // Use authoritative decision_type from backend if available
+  const dt = item.decisionType;
+  if (dt === 'buy') return 'success';
+  if (dt === 'hold') return 'warning';
+  if (dt === 'sell') return 'danger';
+
+  // Fallback: keyword match on operation_advice text
+  const value = formatAdvice(item);
   if (value.includes('买') || value.includes('多') || value.includes('持有')) {
     return 'success';
   }
@@ -321,7 +329,7 @@ export const StockHistoryTrendDrawer: React.FC<StockHistoryTrendDrawerProps> = (
                         </td>
                         <td className="whitespace-nowrap px-3 py-3">
                           <Badge
-                            variant={getAdviceVariant(formatAdvice(item))}
+                            variant={getAdviceVariant(item)}
                             size="sm"
                             className="shadow-none"
                           >

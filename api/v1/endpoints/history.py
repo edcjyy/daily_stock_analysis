@@ -114,6 +114,7 @@ def get_history_list(
                 analysis_summary=item.get("analysis_summary"),
                 sentiment_score=item.get("sentiment_score"),
                 operation_advice=item.get("operation_advice"),
+                decision_type=item.get("decision_type"),
                 current_price=item.get("current_price"),
                 change_pct=item.get("change_pct"),
                 volume_ratio=item.get("volume_ratio"),
@@ -290,7 +291,8 @@ def get_history_detail(
                 get_sentiment_label(result.get("sentiment_score"), report_language)
                 if result.get("sentiment_score") is not None
                 else result.get("sentiment_label")
-            )
+            ),
+            decision_type=result.get("decision_type") or raw_result.get("decision_type"),
         )
         
         strategy = ReportStrategy(

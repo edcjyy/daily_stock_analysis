@@ -8,6 +8,7 @@ Tools:
 """
 
 import logging
+from typing import Optional
 
 from src.agent.tools.registry import ToolParameter, ToolDefinition
 
@@ -38,10 +39,14 @@ def _persist_news_response(
     stock_name: str,
     dimension: str,
     response,
-) -> None:
-    """Best-effort news persistence for Agent search tools."""
+) -> Optional[int]:
+    """Best-effort news persistence for Agent search tools.
+
+    Returns the number of NEW records saved (0 = cache hit / de-duplicated).
+    Returns None if persistence was skipped (no results or failed).
+    """
     if not response or not getattr(response, "success", False) or not getattr(response, "results", None):
-        return
+        return None
 
     code = _canonical_search_code(stock_code)
     try:
@@ -59,6 +64,7 @@ def _persist_news_response(
             dimension,
             saved_count,
         )
+        return saved_count
     except Exception as exc:
         logger.warning(
             "Agent news intel persistence failed for %s (dimension=%s): %s",
@@ -66,6 +72,9 @@ def _persist_news_response(
             dimension,
             exc,
         )
+        return None
+
+
 
 
 def _handle_search_stock_news(stock_code: str, stock_name: str) -> dict:
@@ -84,14 +93,15 @@ def _handle_search_stock_news(stock_code: str, stock_name: str) -> dict:
             "error": response.error_message,
         }
 
-    _persist_news_response(
+    saved_count = _persist_news_response(
         stock_code=stock_code,
         stock_name=stock_name,
         dimension="latest_news",
         response=response,
     )
+    # saved_count is 0 when DB de-duplicates (cached / already-stored results)
 
-    return {
+    result = {
         "query": response.query,
         "provider": response.provider,
         "success": True,
@@ -107,6 +117,16 @@ def _handle_search_stock_news(stock_code: str, stock_name: str) -> dict:
             for r in response.results
         ],
     }
+
+    if saved_count is not None and saved_count == 0:
+        result["note"] = (
+            "The results above are previously cached data (0 new records "
+            "were added to the database).  Do NOT call search_stock_news "
+            "again for this stock — no new results will appear.  Move on "
+            "to other tools or produce your final output now."
+        )
+
+    return result
 
 
 search_stock_news_tool = ToolDefinition(

@@ -800,7 +800,29 @@ def stabilize_decision_with_structure(
         flow_bias, flow_reason = _capital_flow_bias_with_status(fundamental_context)
         if flow_bias == "unavailable":
             if isinstance(fundamental_context, dict) and "capital_flow" in fundamental_context:
-                if decision_type == "buy" or advice_decision_type == "buy":
+                # empty_stock_flow: API returned capital_flow block but stock_flow
+                # was empty.  This is a data infrastructure gap, not a bearish
+                # signal — do NOT downgrade a buy decision for missing data.
+                if flow_reason == "empty_stock_flow":
+                    logger.info(
+                        "[decision_stability] Skipped capital-flow downgrade: "
+                        "flow_status=%s (data gap, not bearish)", flow_reason
+                    )
+                    if decision_type == "buy" or advice_decision_type == "buy":
+                        # Lower confidence since we lack capital-flow confirmation,
+                        # but keep the buy signal intact.
+                        if getattr(result, "confidence_level", "").strip() in ("高", "High"):
+                            result.confidence_level = "中" if language == "zh" else "Medium"
+                    else:
+                        _set_decision_stability_unavailable(
+                            result,
+                            language,
+                            current_price=current_price,
+                            support=support,
+                            resistance=resistance,
+                            flow_status=flow_reason,
+                        )
+                elif decision_type == "buy" or advice_decision_type == "buy":
                     _downgrade_buy_without_capital_flow(
                         result,
                         language,

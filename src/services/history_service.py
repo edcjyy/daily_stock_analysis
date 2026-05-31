@@ -281,6 +281,11 @@ class HistoryService:
             getattr(record, "context_snapshot", None)
         )
 
+        # Extract decision_type from raw_result JSON (not a DB column)
+        decision_type = raw_result.get("decision_type") if isinstance(raw_result, dict) else None
+        if not isinstance(decision_type, str) or not decision_type.strip():
+            decision_type = "hold"
+
         return {
             "id": record.id,
             "query_id": record.query_id,
@@ -291,6 +296,7 @@ class HistoryService:
             "analysis_summary": record.analysis_summary,
             "sentiment_score": record.sentiment_score,
             "operation_advice": record.operation_advice,
+            "decision_type": decision_type,
             "model_used": normalize_model_used(model_used),
             "created_at": record.created_at.isoformat() if record.created_at else None,
             **market_fields,

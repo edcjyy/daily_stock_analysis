@@ -14,24 +14,21 @@ interface HistoryListItemProps {
   onClick: (recordId: number) => void;
 }
 
-const getOperationBadgeLabel = (advice?: string) => {
-  const normalized = advice?.trim();
-  if (!normalized) {
-    return '情绪';
-  }
-  if (normalized.includes('减仓')) {
-    return '减仓';
-  }
-  if (normalized.includes('卖')) {
-    return '卖出';
-  }
-  if (normalized.includes('观望') || normalized.includes('等待')) {
-    return '观望';
-  }
-  if (normalized.includes('买') || normalized.includes('布局')) {
-    return '买入';
-  }
-  return normalized.split(/[，。；、\s]/)[0] || '建议';
+const getOperationBadgeLabel = (item: HistoryItem) => {
+  // Use authoritative decision_type from backend if available
+  const dt = item.decisionType;
+  if (dt === 'buy') return '买入';
+  if (dt === 'hold') return '观望';
+  if (dt === 'sell') return '减仓';
+
+  // Fallback: keyword match on operation_advice text
+  const advice = item.operationAdvice?.trim();
+  if (!advice) return '情绪';
+  if (advice.includes('减仓')) return '减仓';
+  if (advice.includes('卖')) return '卖出';
+  if (advice.includes('观望') || advice.includes('等待')) return '观望';
+  if (advice.includes('买') || advice.includes('布局')) return '买入';
+  return advice.split(/[，。；、\s]/)[0] || '建议';
 };
 
 export const HistoryListItem: React.FC<HistoryListItemProps> = ({
@@ -97,7 +94,7 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({
                     backgroundColor: `${sentimentColor}10`,
                   }}
                 >
-                  {getOperationBadgeLabel(item.operationAdvice)} {item.sentimentScore}
+                  {getOperationBadgeLabel(item)} {item.sentimentScore}
                 </Badge>
               )}
             </div>
