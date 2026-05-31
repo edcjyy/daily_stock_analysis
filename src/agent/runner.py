@@ -548,7 +548,12 @@ def run_agent_loop(
             filtered_calls = []
             dupe_results: list[dict] = []
             for tc in response.tool_calls:
-                key = (tc.name, tc.arguments)
+                # Normalise arguments to a hashable key — they may be
+                # str (JSON) or dict, depending on the provider.
+                args_repr = tc.arguments
+                if isinstance(args_repr, dict):
+                    args_repr = json.dumps(args_repr, sort_keys=True)
+                key = (tc.name, args_repr)
                 count = _dupe_counter.get(key, 0) + 1
                 _dupe_counter[key] = count
                 if count > _DUPE_THRESHOLD:
