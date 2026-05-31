@@ -396,6 +396,12 @@ def run_agent_loop(
     label_prefix = f"[{agent_label}] " if agent_label else ""
     tool_decls = tool_registry.to_openai_tools()
 
+    # Detect repetitive identical tool calls (same name + same args).
+    # After 3 consecutive identical calls the tool output is very likely
+    # stale / cached with 0 new records — short-circuit to break loops.
+    _dupe_counter: dict[tuple[str, str], int] = {}
+    _DUPE_THRESHOLD = 3
+
     start_time = time.time()
     tool_calls_log: List[Dict[str, Any]] = []
     non_retriable_tool_results: Dict[str, str] = {}
@@ -535,15 +541,46 @@ def run_agent_loop(
                     remaining_timeout,
                     tool_call_timeout_seconds if tool_call_timeout_seconds and tool_call_timeout_seconds > 0 else remaining_timeout,
                 )
-            tool_results = _execute_tools(
-                response.tool_calls,
-                tool_registry,
-                step + 1,
-                progress_callback,
-                tool_calls_log,
-                non_retriable_tool_results,
-                tool_wait_timeout_seconds=effective_tool_timeout,
-            )
+            # ---- Short-circuit repetitive identical tool calls ----
+            # When the same tool+args combo is called 3+ times the output is
+            # almost always cached / 0 new records.  Skip execution and inject
+            # a synthetic result so the agent moves on instead of looping.
+            filtered_calls = []
+            dupe_results: list[dict] = []
+            for tc in response.tool_calls:
+                key = (tc.name, tc.arguments)
+                count = _dupe_counter.get(key, 0) + 1
+                _dupe_counter[key] = count
+                if count > _DUPE_THRESHOLD:
+                    logger.warning(
+                        "%sTool '%s' called %d times consecutively — short-circuiting",
+                        label_prefix, tc.name, count,
+                    )
+                    dupe_results.append({
+                        "tc": tc,
+                        "result_str": (
+                            "This tool was called multiple times with identical "
+                            "arguments.  No new data was returned.  Consider "
+                            "moving on to other tools or producing your final answer."
+                        ),
+                        "tool_output": None,
+                    })
+                else:
+                    filtered_calls.append(tc)
+
+            if filtered_calls:
+                tool_results = _execute_tools(
+                    filtered_calls,
+                    tool_registry,
+                    step + 1,
+                    progress_callback,
+                    tool_calls_log,
+                    non_retriable_tool_results,
+                    tool_wait_timeout_seconds=effective_tool_timeout,
+                )
+                tool_results.extend(dupe_results)
+            else:
+                tool_results = dupe_results
 
             # Append tool results preserving original call order
             tc_order = {tc.id: i for i, tc in enumerate(response.tool_calls)}
