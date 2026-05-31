@@ -1609,7 +1609,7 @@ class GeminiAnalyzer:
         "battle_plan": {
             "sniper_points": {
                 "ideal_buy": "理想买入点：XX元（在MA5附近）",
-                "secondary_buy": "次优买入点：XX元（在MA10附近）",
+                "secondary_buy": "次优买入点：XX元（在MA10附近）。仅 buy 评级时填写有意义价格；hold/sell 时填写 'N/A'",
                 "stop_loss": "止损位：XX元（跌破MA20或X%）",
                 "take_profit": "目标位：XX元（前高/整数关口）"
             },
@@ -1767,7 +1767,7 @@ class GeminiAnalyzer:
         "battle_plan": {
             "sniper_points": {
                 "ideal_buy": "理想入场位：XX元（满足主要技能触发条件）",
-                "secondary_buy": "次优入场位：XX元（更保守或确认后执行）",
+                "secondary_buy": "次优入场位：XX元（更保守或确认后执行）。仅 buy 评级时填写有意义价格；hold/sell 时填写 'N/A'",
                 "stop_loss": "止损位：XX元（失效条件或X%风险）",
                 "take_profit": "目标位：XX元（按阻力位/风险回报比制定）"
             },
