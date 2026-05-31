@@ -883,6 +883,21 @@ class AgentOrchestrator:
         if "report_language" not in ctx.meta:
             ctx.meta["report_language"] = "zh"
 
+        # Inject market phase context so all downstream agents are aware of
+        # the trading phase (pre-market / intraday / post-market / non-trading).
+        mp_ctx = ctx.meta.get("market_phase_context")
+        if isinstance(mp_ctx, dict) and mp_ctx:
+            try:
+                from src.market_phase_prompt import format_market_phase_prompt_section
+                phase_section = format_market_phase_prompt_section(
+                    mp_ctx,
+                    report_language=ctx.meta.get("report_language", "zh"),
+                )
+                if phase_section:
+                    ctx.market_phase_note = phase_section
+            except Exception:
+                pass
+
         return ctx
 
     @staticmethod

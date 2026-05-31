@@ -105,8 +105,26 @@ from your search results. Do NOT invent risks.
         parts.append("Search for latest news if you haven't received intel data yet.")
 
         # Feed any existing intel data so the risk agent doesn't redo searches
-        if ctx.get_data("intel_opinion"):
-            parts.append(f"\n[Existing intel data]\n{json.dumps(ctx.get_data('intel_opinion'), ensure_ascii=False, default=str)}")
+        intel = ctx.get_data("intel_opinion")
+        if isinstance(intel, dict):
+            summary_parts = []
+            risk_alerts = intel.get("risk_alerts", [])
+            catalysts = intel.get("positive_catalysts", [])
+            sentiment = intel.get("sentiment_label", "")
+            capital = intel.get("capital_flow_signal", "")
+            if risk_alerts:
+                summary_parts.append(f"Intel risk alerts: {json.dumps(risk_alerts, ensure_ascii=False)}")
+            if catalysts:
+                summary_parts.append(f"Intel catalysts: {json.dumps(catalysts, ensure_ascii=False)}")
+            if sentiment:
+                summary_parts.append(f"Intel sentiment: {sentiment}")
+            if capital:
+                summary_parts.append(f"Intel capital flow: {capital}")
+            if summary_parts:
+                parts.append(
+                    f"\n[Intel data — use this, do NOT re-search unless clearly incomplete]\n"
+                    + "\n".join(summary_parts)
+                )
 
         return "\n".join(parts)
 

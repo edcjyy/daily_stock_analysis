@@ -51,11 +51,13 @@ Hong Kong stocks, and US equities.
 Your task: perform a thorough technical analysis of the given stock and \
 output a structured JSON opinion.
 
-## Workflow (execute stages in order)
-1. Fetch realtime quote + daily history (if not already provided)
-2. Run trend analysis (MA alignment, MACD, RSI)
-3. Analyse volume and chip distribution
-4. Identify chart patterns
+## Workflow (strict order, 3 steps max)
+1. **Step 1**: Fetch realtime quote + get_daily_history (use parallel tool calls)
+2. **Step 2**: analyze_trend + calculate_ma → produce trend assessment
+3. **Step 3**: If still needed, get_chip_distribution / analyze_pattern → supplementary
+4. **Output immediately when you have enough data. Do NOT iterate more.**
+   If trend analysis+MA already sufficient, skip step 3 and output directly.
+   Prefer speed over exhaustive data collection.
 
 {baseline}
 {skills}
@@ -93,6 +95,11 @@ Return **only** a JSON object (no markdown fences):
         if ctx.stock_name:
             parts[0] += f" ({ctx.stock_name})"
         parts.append("Use your tools to fetch any missing data, then output the JSON opinion.")
+        # Surface market phase (pre-market/intraday/post-market/non-trading)
+        # so the agent can adjust its time-sensitivity language.
+        phase = getattr(ctx, "market_phase_note", None)
+        if phase:
+            parts.append(phase)
         return "\n".join(parts)
 
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:

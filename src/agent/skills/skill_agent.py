@@ -100,6 +100,7 @@ Return **only** a JSON object:
             f"Evaluate **{self.skill_id}** skill for stock "
             f"**{ctx.stock_code}** ({ctx.stock_name or 'unknown'}).",
         ]
+        has_intel = False
         if ctx.opinions:
             for op in ctx.opinions:
                 if op.agent_name == "technical":
@@ -110,6 +111,23 @@ Return **only** a JSON object:
                         parts.append(
                             f"Technical data: {json.dumps(op.raw_data, ensure_ascii=False, default=str)[:2000]}"
                         )
+                if op.agent_name == "intel":
+                    parts.append(f"\nIntel summary (news/sentiment, prefer this over re-searching): {op.reasoning}")
+                    if op.raw_data:
+                        rd = op.raw_data
+                        if isinstance(rd, dict):
+                            alerts = rd.get("risk_alerts", [])
+                            catalysts = rd.get("positive_catalysts", [])
+                            if alerts:
+                                parts.append(f"Risk alerts: {json.dumps(alerts, ensure_ascii=False)}")
+                            if catalysts:
+                                parts.append(f"Catalysts: {json.dumps(catalysts, ensure_ascii=False)}")
+                    has_intel = True
+        if has_intel:
+            parts.append("\nIntelAgent has already provided news/sentiment. "
+                         "Use it directly — do NOT call search tools unless "
+                         "the intel data is clearly missing information "
+                         "critical to this skill.")
         return "\n".join(parts)
 
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
