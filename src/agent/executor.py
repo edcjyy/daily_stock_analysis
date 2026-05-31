@@ -711,6 +711,7 @@ class AgentExecutor:
             progress_callback=progress_callback,
             max_wall_clock_seconds=self.timeout_seconds,
             stock_code=self.stock_code or None,
+            agent_label=getattr(self, "agent_name", None),
         )
 
         model_str = loop_result.model

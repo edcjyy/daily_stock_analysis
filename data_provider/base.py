@@ -1043,7 +1043,13 @@ class DataFetcherManager:
         - 如果配置了 TUSHARE_TOKEN：实例化 TushareFetcher，并按其内部逻辑提升优先级
         - 如果配置了 Longbridge OAuth 或 Legacy 凭据：实例化 LongbridgeFetcher 作为美股/港股兜底
         - 未配置的可选数据源不实例化，避免在批量拉取时反复探测无效源
-        - 默认优先级：
+        """
+        # Process-level cache: avoid re-initialising fetchers on every
+        # DataFetcherManager instance, which happens per tool call.
+        if _init_default_fetchers._cache is not None:
+            self._fetchers = list(_init_default_fetchers._cache)
+            return
+        - 默认优先级:
           0. EfinanceFetcher (Priority 0) - 最高优先级
           1. AkshareFetcher (Priority 1)
           2. PytdxFetcher (Priority 2) - 通达信
@@ -1111,7 +1117,10 @@ class DataFetcherManager:
         # 构建优先级说明
         priority_info = ", ".join([f"{f.name}(P{f.priority})" for f in self._get_fetchers_snapshot()])
         logger.info(f"已初始化 {len(self._fetchers)} 个数据源（按优先级）: {priority_info}")
+        _init_default_fetchers._cache = list(self._fetchers)
     
+
+_init_default_fetchers._cache = None
     def add_fetcher(self, fetcher: BaseFetcher) -> None:
         """添加数据源并重新排序"""
         self._ensure_concurrency_guards()

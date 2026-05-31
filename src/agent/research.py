@@ -380,6 +380,7 @@ Token budget remaining: ~{remaining_budget}
                 max_steps=4,
                 max_wall_clock_seconds=timeout_seconds,
                 tool_call_timeout_seconds=timeout_seconds,
+                agent_label="deep_research",
             )
             if not result.success and self._looks_like_timeout_error(result.error):
                 return {

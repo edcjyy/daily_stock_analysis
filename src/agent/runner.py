@@ -369,6 +369,7 @@ def run_agent_loop(
     max_wall_clock_seconds: Optional[float] = None,
     tool_call_timeout_seconds: Optional[float] = None,
     stock_code: Optional[str] = None,
+    agent_label: Optional[str] = None,
 ) -> RunLoopResult:
     """Execute the ReAct LLM ↔ tool loop.
 
@@ -392,6 +393,7 @@ def run_agent_loop(
         (mutated) messages list.
     """
     labels = thinking_labels or _THINKING_TOOL_LABELS
+    label_prefix = f"[{agent_label}] " if agent_label else ""
     tool_decls = tool_registry.to_openai_tools()
 
     start_time = time.time()
@@ -450,7 +452,7 @@ def run_agent_loop(
                 messages=messages,
             )
 
-        logger.info("Agent step %d/%d", step + 1, max_steps)
+        logger.info("%sAgent step %d/%d", label_prefix, step + 1, max_steps)
 
         # --- progress: thinking ---
         if progress_callback:
@@ -497,7 +499,8 @@ def run_agent_loop(
         if response.tool_calls:
             # ---- tool execution branch ----
             logger.info(
-                "Agent requesting %d tool call(s): %s",
+                "%sAgent requesting %d tool call(s): %s",
+                label_prefix,
                 len(response.tool_calls),
                 [tc.name for tc in response.tool_calls],
             )
@@ -572,7 +575,8 @@ def run_agent_loop(
         else:
             # ---- final answer branch ----
             logger.info(
-                "Agent completed in %d steps (%.1fs, %d tokens)",
+                "%sAgent completed in %d steps (%.1fs, %d tokens)",
+                label_prefix,
                 step + 1,
                 time.time() - start_time,
                 total_tokens,

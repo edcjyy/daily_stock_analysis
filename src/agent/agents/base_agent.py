@@ -120,6 +120,7 @@ class BaseAgent(ABC):
                 progress_callback=progress_callback,
                 max_wall_clock_seconds=timeout_seconds,
                 stock_code=ctx.stock_code or None,
+                agent_label=self.agent_name,
             )
 
             result.tokens_used = loop_result.total_tokens
