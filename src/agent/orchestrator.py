@@ -63,12 +63,30 @@ class OrchestratorResult:
     content: str = ""
     dashboard: Optional[Dict[str, Any]] = None
     tool_calls_log: List[Dict[str, Any]] = field(default_factory=list)
+    opinions: List[Dict[str, Any]] = field(default_factory=list)
     total_steps: int = 0
     total_tokens: int = 0
     provider: str = ""
     model: str = ""
     error: Optional[str] = None
     stats: Optional[AgentRunStats] = None
+
+
+def _serialize_opinions(opinions: list) -> list[dict]:
+    """Serialize AgentOpinion list to JSON-safe dicts for snapshot storage."""
+    result: list[dict] = []
+    for op in opinions:
+        try:
+            result.append({
+                "agent_name": getattr(op, "agent_name", "?"),
+                "signal": getattr(op, "signal", ""),
+                "confidence": float(getattr(op, "confidence", 0.0)),
+                "reasoning": str(getattr(op, "reasoning", ""))[:2000],
+                "key_levels": getattr(op, "key_levels", {}),
+            })
+        except Exception:
+            pass
+    return result
 
 
 class AgentOrchestrator:
@@ -287,6 +305,7 @@ class AgentOrchestrator:
             success=orch_result.success,
             content=orch_result.content,
             dashboard=orch_result.dashboard,
+            opinions=orch_result.opinions,
             tool_calls_log=orch_result.tool_calls_log,
             total_steps=orch_result.total_steps,
             total_tokens=orch_result.total_tokens,
@@ -343,6 +362,7 @@ class AgentOrchestrator:
             success=orch_result.success,
             content=orch_result.content,
             dashboard=orch_result.dashboard,
+            opinions=orch_result.opinions,
             tool_calls_log=orch_result.tool_calls_log,
             total_steps=orch_result.total_steps,
             total_tokens=orch_result.total_tokens,
@@ -573,6 +593,7 @@ class AgentOrchestrator:
                 content=content,
                 dashboard=None,
                 tool_calls_log=all_tool_calls,
+                opinions=_serialize_opinions(ctx.opinions),
                 total_steps=stats.total_stages,
                 total_tokens=stats.total_tokens,
                 provider=provider,
@@ -601,6 +622,7 @@ class AgentOrchestrator:
             content=content,
             dashboard=dashboard,
             tool_calls_log=all_tool_calls,
+            opinions=_serialize_opinions(ctx.opinions),
             total_steps=stats.total_stages,
             total_tokens=stats.total_tokens,
             provider=provider,

@@ -1164,11 +1164,12 @@ class StockAnalysisPipeline:
             # 保存分析历史记录
             if result and result.success:
                 try:
+                    enhanced_context = {
+                        **self._without_runtime_prompt_context(initial_context),
+                        "stock_name": resolved_stock_name,
+                    }
                     agent_context_snapshot = self._build_context_snapshot(
-                        enhanced_context={
-                            **self._without_runtime_prompt_context(initial_context),
-                            "stock_name": resolved_stock_name,
-                        },
+                        enhanced_context=enhanced_context,
                         news_content=initial_context.get("news_context"),
                         news_result_count=agent_news_count,
                         realtime_quote=realtime_quote,
@@ -1177,6 +1178,35 @@ class StockAnalysisPipeline:
                     )
                     result.diagnostic_context_snapshot = agent_context_snapshot
                     agent_context_snapshot["stock_name"] = resolved_stock_name
+                    # Preserve agent opinions (analysis chain) for post-hoc diagnostics
+                    if hasattr(agent_result, "opinions") and agent_result.opinions:
+                        agent_context_snapshot["agent_opinions"] = agent_result.opinions
+                    # Preserve pipeline data fed to agents for cross-validation
+                    tr = initial_context.get("trend_result", {})
+                    _pipeline_block = {
+                        "trend": {
+                            k: tr.get(k) for k in (
+                                "ma5", "ma10", "ma20", "trend_status",
+                                "signal_score", "buy_signal",
+                                "support_levels", "resistance_levels",
+                                "volume_ratio_5d", "volume_status",
+                            )
+                        },
+                        "fundamental": {},
+                    }
+                    fc = initial_context.get("fundamental_context") or {}
+                    for bk in ("valuation", "growth", "earnings", "capital_flow", "dragon_tiger"):
+                        block = fc.get(bk, {}) if isinstance(fc, dict) else {}
+                        if isinstance(block, dict):
+                            entry: dict = {"status": block.get("status", "?")}
+                            if bk == "capital_flow":
+                                sf = block.get("data", {}).get("stock_flow", {})
+                                if isinstance(sf, dict):
+                                    entry["stock_flow"] = {
+                                        k: sf.get(k) for k in ("main_net_inflow", "inflow_5d", "inflow_10d")
+                                    }
+                            _pipeline_block["fundamental"][bk] = entry
+                    agent_context_snapshot["pipeline_precomputed"] = _pipeline_block
                     saved_count = self.db.save_analysis_history(
                         result=result,
                         query_id=query_id,

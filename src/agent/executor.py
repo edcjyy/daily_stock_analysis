@@ -45,6 +45,7 @@ class AgentResult:
     content: str = ""                          # final text answer from agent
     dashboard: Optional[Dict[str, Any]] = None  # parsed dashboard JSON
     tool_calls_log: List[Dict[str, Any]] = field(default_factory=list)  # execution trace
+    opinions: List[Dict[str, Any]] = field(default_factory=list)  # orchestrator agent opinions
     total_steps: int = 0
     total_tokens: int = 0
     provider: str = ""
