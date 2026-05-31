@@ -1036,26 +1036,19 @@ class DataFetcherManager:
         return []
     
     def _init_default_fetchers(self) -> None:
-        """
-        初始化默认数据源列表
+        """初始化默认数据源列表（首次调用缓存，后续复用）。
 
         优先级动态调整逻辑：
-        - 如果配置了 TUSHARE_TOKEN：实例化 TushareFetcher，并按其内部逻辑提升优先级
-        - 如果配置了 Longbridge OAuth 或 Legacy 凭据：实例化 LongbridgeFetcher 作为美股/港股兜底
-        - 未配置的可选数据源不实例化，避免在批量拉取时反复探测无效源
+        - 如果配置了 TUSHARE_TOKEN：实例化 TushareFetcher
+        - 如果配置了 Longbridge OAuth 凭据：实例化 LongbridgeFetcher
+        - 默认优先级: Efinance(P0) > Akshare(P1) > Pytdx(P2) > Baostock(P3) > Yfinance(P4)
         """
         # Process-level cache: avoid re-initialising fetchers on every
         # DataFetcherManager instance, which happens per tool call.
         if _init_default_fetchers._cache is not None:
             self._fetchers = list(_init_default_fetchers._cache)
             return
-        - 默认优先级:
-          0. EfinanceFetcher (Priority 0) - 最高优先级
-          1. AkshareFetcher (Priority 1)
-          2. PytdxFetcher (Priority 2) - 通达信
-          3. BaostockFetcher (Priority 3)
-          4. YfinanceFetcher (Priority 4)
-        """
+        # Default priority: Efinance(P0) > Akshare(P1) > Pytdx(P2) > Baostock(P3) > Yfinance(P4)
         from src.config import get_config
         from .efinance_fetcher import EfinanceFetcher
         from .akshare_fetcher import AkshareFetcher
@@ -1120,7 +1113,6 @@ class DataFetcherManager:
         _init_default_fetchers._cache = list(self._fetchers)
     
 
-_init_default_fetchers._cache = None
     def add_fetcher(self, fetcher: BaseFetcher) -> None:
         """添加数据源并重新排序"""
         self._ensure_concurrency_guards()
@@ -3121,3 +3113,7 @@ _init_default_fetchers._cache = None
         if last_error:
             logger.warning(f"[涨停池] 所有数据源均失败，最终错误: {last_error}")
         return []
+
+
+# Module-level cache for fetcher initialisation (see _init_default_fetchers).
+_init_default_fetchers._cache = None
