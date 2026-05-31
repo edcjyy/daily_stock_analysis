@@ -58,6 +58,118 @@ CORE_TRADING_SKILL_POLICY_ZH = """## 默认技能基线（必须严格遵守）
 - 强势趋势股可适当放宽乖离率要求，轻仓追踪但需设止损
 """
 
+BEAR_MARKET_SKILL_POLICY_ZH = """## 空头市场基线（必须严格遵守）
+
+当前行情处于空头/下跌趋势，以下基线优先级高于技能信号。
+
+### 1. 防御优先（不抄底）
+- **空头排列坚决不买**：MA5 < MA10 < MA20时，首要任务是保护资金
+- 只在出现明确的底部反转信号（底背驰 + 放量阳线 + 站上MA5）后才考虑试探性仓位
+- 绝不左侧抄底，等右侧确认信号
+
+### 2. 止损纪律（严格）
+- 任何持仓必须设止损，止损距离不超过入场价3%
+- 跌破关键支撑（MA20/前低）立即无条件离场
+- 反弹遇阻MA10/MA20时考虑减仓
+
+### 3. 风险排查（最高优先级）
+- 减持公告、业绩预亏、监管处罚、大额解禁 → 一票否决
+- 资金持续流出（主力净流出）时不做多
+- PE/PB异常偏高时在风险点中明确标注
+
+### 4. 买点要求（极严格）
+- 必须底背驰 + 放量（量比>1.5） + 站上MA5 三者同时满足
+- 仅限试探仓位（≤2成），趋势确认后再加仓
+- 乖离率必须<3%（避免抄底在半山腰）
+
+### 5. 核心原则
+- 空头市场宁可错过不可做错
+- 持币观望是最优策略
+- 若不确定，输出"观望"而非"买入"
+"""
+
+SIDEWAYS_MARKET_SKILL_POLICY_ZH = """## 震荡市场基线（必须严格遵守）
+
+当前行情处于盘整/震荡，以下基线指导低吸高抛波段操作。
+
+### 1. 箱体操作（支撑买阻力卖）
+- 识别箱体顶部（阻力位）和底部（支撑位），只在箱底附近买入
+- 距支撑位≤3%为买点区间，距阻力位≤3%为卖点区间
+- 箱体中间1/3区域保持观望，不主动操作
+- 箱体宽度<3%时不参与（操作空间不足）
+
+### 2. 仓位管理（灵活）
+- 箱底首仓3-4成，突破确认后加至5-6成
+- 箱顶附近减至1-2成或清仓
+- 严格在箱体内操作，不追突破（假突破概率高）
+
+### 3. 量能辅助
+- 箱底缩量企稳：支撑有效，可加重仓
+- 箱顶放量滞涨：阻力有效，减仓信号
+- 箱体突破（连续2日收盘站上或跌破+放量）：转为趋势策略
+
+### 4. 风险控制
+- 跌破箱体底部3%无条件止损
+- 不参与无明显箱体结构的标的
+- 震荡市中利好/利空消息易被放大，需结合技术面判断
+
+### 5. 核心原则
+- 不追高不杀跌，依托箱体边界操作
+- 震荡市收益来自波段，耐心比判断更重要
+"""
+
+
+def _detect_regime_from_trend(trend_result: Optional[dict]) -> Optional[str]:
+    """从 pipeline 预计算的 trend_result 推断 regime。
+
+    用于在 agent 启动前确定应使用的基线策略，
+    而非依赖 agent pipeline 内部的 SkillRouter 判断。
+    
+    返回: "trending_up" | "trending_down" | "sideways" | "volatile" | None
+    """
+    if not isinstance(trend_result, dict):
+        return None
+    ts = str(trend_result.get("trend_status", "")).lower()
+    score = 0
+    try:
+        score = int(trend_result.get("signal_score", 50))
+    except (TypeError, ValueError):
+        pass
+    vol = str(trend_result.get("volume_status", "")).lower()
+
+    if any(k in ts for k in ("strong_bull", "bull")) and score >= 60:
+        return "trending_up"
+    if any(k in ts for k in ("bear", "strong_bear")) and score <= 40:
+        return "trending_down"
+    if any(k in ts for k in ("consolidation", "weak_bull", "weak_bear")):
+        if "heavy" in vol:
+            return "volatile"
+        return "sideways"
+    return None
+
+
+def get_trading_skill_policy_by_regime(
+    *,
+    regime: Optional[str] = None,
+    explicit_skill_selection: bool = False,
+) -> str:
+    """根据 regime（市场状态）返回最合适的基线策略。
+
+    - trending_up → 默认牛市基线（CORE_TRADING_SKILL_POLICY_ZH）
+    - trending_down → 空头基线（BEAR_MARKET_SKILL_POLICY_ZH）
+    - sideways / volatile → 震荡基线（SIDEWAYS_MARKET_SKILL_POLICY_ZH）
+    - None / 未知 → 默认牛市基线（向后兼容）
+    - explicit_skill_selection=True → 空字符串（让技能自主判断）
+    """
+    if explicit_skill_selection:
+        return ""
+
+    if regime == "trending_down":
+        return BEAR_MARKET_SKILL_POLICY_ZH
+    if regime in ("sideways", "volatile"):
+        return SIDEWAYS_MARKET_SKILL_POLICY_ZH
+    return CORE_TRADING_SKILL_POLICY_ZH
+
 TECHNICAL_SKILL_RULES_EN = """## Default Skill Baseline
 
 Treat the currently activated skills as the primary analysis lens, but keep the

@@ -237,8 +237,15 @@ def get_skill_manager(config=None):
     return copy.deepcopy(_SKILL_MANAGER_PROTOTYPE)
 
 
-def resolve_skill_prompt_state(config=None, skills: Optional[List[str]] = None) -> SkillPromptState:
-    """Resolve active skills and prompt fragments for analyzer / agent entrypoints."""
+def resolve_skill_prompt_state(config=None, skills: Optional[List[str]] = None, regime: Optional[str] = None) -> SkillPromptState:
+    """Resolve active skills and prompt fragments for analyzer / agent entrypoints.
+
+    Args:
+        regime: Optional market regime hint ("trending_up"|"trending_down"|
+            "sideways"|"volatile").  When provided, the trading baseline is
+            selected to match the regime instead of always defaulting to the
+            bull-trend baseline.
+    """
     if config is None:
         from src.config import get_config
         config = get_config()
@@ -246,7 +253,7 @@ def resolve_skill_prompt_state(config=None, skills: Optional[List[str]] = None) 
     from src.agent.skills.defaults import (
         get_default_active_skill_ids,
         get_default_technical_skill_policy,
-        get_default_trading_skill_policy,
+        get_trading_skill_policy_by_regime,
     )
 
     skill_manager = get_skill_manager(config)
@@ -285,7 +292,8 @@ def resolve_skill_prompt_state(config=None, skills: Optional[List[str]] = None) 
         explicit_skill_selection=explicit_skill_selection,
         use_legacy_default_prompt=use_legacy_default_prompt,
         skill_instructions=skill_manager.get_skill_instructions(),
-        default_skill_policy=get_default_trading_skill_policy(
+        default_skill_policy=get_trading_skill_policy_by_regime(
+            regime=regime,
             explicit_skill_selection=not use_legacy_default_prompt,
         ),
         technical_skill_policy=get_default_technical_skill_policy(
@@ -294,7 +302,7 @@ def resolve_skill_prompt_state(config=None, skills: Optional[List[str]] = None) 
     )
 
 
-def build_agent_executor(config=None, skills: Optional[List[str]] = None):
+def build_agent_executor(config=None, skills: Optional[List[str]] = None, regime: Optional[str] = None):
     """Build and return a configured AgentExecutor (or future orchestrator).
 
     When ``AGENT_ARCH=multi``, this returns an orchestrator that manages
@@ -307,6 +315,9 @@ def build_agent_executor(config=None, skills: Optional[List[str]] = None):
         skills: Skill ids to activate.  When *None* falls back to
                 ``config.agent_skills``; if that is also empty falls back to
                 the central default skill set.
+        regime: Optional market regime ("trending_up"|"trending_down"|
+                "sideways"|"volatile"). Affects which trading baseline policy
+                is injected into agent prompts.
 
     Returns:
         A ready-to-call :class:`src.agent.executor.AgentExecutor` instance.
@@ -320,7 +331,7 @@ def build_agent_executor(config=None, skills: Optional[List[str]] = None):
     from src.agent.llm_adapter import LLMToolAdapter
 
     registry = get_tool_registry()
-    prompt_state = resolve_skill_prompt_state(config, skills=skills)
+    prompt_state = resolve_skill_prompt_state(config, skills=skills, regime=regime)
     skill_manager = prompt_state.skill_manager
     logger.info(
         "[AgentFactory] Resolved skill prompt state: skills=%s (arch=%s, explicit=%s, legacy_default_prompt=%s)",

@@ -959,6 +959,7 @@ class StockAnalysisPipeline:
         """
         try:
             from src.agent.factory import build_agent_executor
+            from src.agent.skills.defaults import _detect_regime_from_trend
             report_language = normalize_report_language(getattr(self.config, "report_language", "zh"))
 
             requested_skills = (
@@ -966,8 +967,16 @@ class StockAnalysisPipeline:
                 if self.analysis_skills is not None
                 else (getattr(self.config, 'agent_skills', None) or None)
             )
+            # Detect market regime from pre-computed trend_result so the
+            # trading baseline policy matches the actual market state.
+            trend_dict = self._safe_to_dict(trend_result) if trend_result else None
+            regime = _detect_regime_from_trend(trend_dict)
+            logger.info(
+                "[%s] market regime=%s, selecting trading baseline policy",
+                code, regime or "unknown",
+            )
             # Build executor from shared factory (ToolRegistry and SkillManager prototype are cached)
-            executor = build_agent_executor(self.config, requested_skills)
+            executor = build_agent_executor(self.config, requested_skills, regime=regime)
 
             # Build initial context to avoid redundant tool calls
             initial_context = {
