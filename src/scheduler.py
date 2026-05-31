@@ -293,7 +293,11 @@ class Scheduler:
             self._refresh_daily_schedule_if_needed()
             self.schedule.run_pending()
             self._run_background_tasks()
-            time.sleep(30)  # 每30秒检查一次
+            # Sleep in 1s increments so SIGTERM is respected immediately
+            for _ in range(30):
+                if not self._running or self.shutdown_handler.should_shutdown:
+                    break
+                time.sleep(1)
 
             # 每小时打印一次心跳
             if datetime.now().minute == 0 and datetime.now().second < 30:

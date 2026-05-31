@@ -12,6 +12,7 @@ Responsibilities:
 from __future__ import annotations
 import json
 import logging
+import sqlite3
 from datetime import date, datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple, TYPE_CHECKING
 
@@ -41,6 +42,26 @@ if TYPE_CHECKING:
     from src.analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)
+
+class HistoryDBError(Exception):
+    """Raised when a DB infrastructure failure (connection lost, corrupt, disk full) 
+    should be surfaced as 5xx instead of silently returning empty results."""
+    pass
+
+
+def _reraise_db_error(exc: Exception, context: str = "") -> None:
+    """If exc is an infrastructure-level DB failure, raise HistoryDBError.
+    
+    Query-level errors (missing table, bad SQL) are tolerated with logging.
+    Connection-lost, corrupt-db, disk-full are critical and must surface.
+    """
+    if isinstance(exc, (sqlite3.OperationalError, sqlite3.DatabaseError)):
+        msg = f"Database infrastructure failure: {exc}" 
+        if context:
+            msg = f"{context}: {exc}"
+        logger.critical(msg, exc_info=True)
+        raise HistoryDBError(msg) from exc
+
 
 
 class MarkdownReportGenerationError(Exception):
@@ -196,6 +217,7 @@ class HistoryService:
             
         except Exception as e:
             logger.error(f"查询历史列表失败: {e}", exc_info=True)
+            _reraise_db_error(e, "查询历史列表")
             return {"total": 0, "items": []}
 
     @staticmethod
@@ -335,6 +357,7 @@ class HistoryService:
             return self.get_news_intel(query_id=record.query_id, limit=limit)
         except Exception as e:
             logger.error(f"resolve_and_get_news failed for {record_id}: {e}", exc_info=True)
+            _reraise_db_error(e, f"resolve_and_get_news({record_id})")
             return []
 
     def resolve_and_get_diagnostics(self, record_id: str) -> Optional[Dict[str, Any]]:
@@ -397,6 +420,7 @@ class HistoryService:
             return self._record_to_detail_dict(record)
         except Exception as e:
             logger.error(f"根据 ID 查询历史详情失败: {e}", exc_info=True)
+            _reraise_db_error(e, f"get_by_id({record_id})")
             return None
 
     @staticmethod
@@ -535,6 +559,7 @@ class HistoryService:
 
         except Exception as e:
             logger.error(f"查询新闻情报失败: {e}", exc_info=True)
+            _reraise_db_error(e, "查询新闻情报")
             return []
 
     def get_news_intel_by_record_id(self, record_id: int, limit: int = 20) -> List[Dict[str, str]]:
@@ -562,6 +587,7 @@ class HistoryService:
 
         except Exception as e:
             logger.error(f"根据 record_id 查询新闻情报失败: {e}", exc_info=True)
+            _reraise_db_error(e, f"get_news_by_record_id({record_id})")
             return []
 
     def _fallback_news_by_analysis_context(self, query_id: str, limit: int) -> List[Any]:
@@ -764,6 +790,7 @@ class HistoryService:
             )
         except Exception as e:
             logger.error(f"Failed to rebuild AnalysisResult: {e}", exc_info=True)
+            _reraise_db_error(e, "rebuild AnalysisResult")
             return None
 
     def _generate_single_stock_markdown(

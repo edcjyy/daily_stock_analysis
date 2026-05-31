@@ -878,14 +878,13 @@ class AnalysisTaskQueue:
         
         for queue in subscribers:
             try:
-                # 使用 call_soon_threadsafe 将事件放入 asyncio 队列
-                # 这是从工作线程向主事件循环发送消息的安全方式
                 loop.call_soon_threadsafe(queue.put_nowait, event)
             except RuntimeError as e:
-                # 事件循环已关闭
-                logger.debug(f"[TaskQueue] 广播事件跳过（循环已关闭）: {e}")
+                logger.debug("[TaskQueue] broadcast skipped (loop closed): %s", e)
+            except asyncio.QueueFull:
+                logger.warning("[TaskQueue] broadcast skipped (subscriber queue full)")
             except Exception as e:
-                logger.warning(f"[TaskQueue] 广播事件失败: {e}")
+                logger.warning("[TaskQueue] broadcast failed: %s", e)
     
     # ========== 清理方法 ==========
     
