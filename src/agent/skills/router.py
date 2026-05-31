@@ -25,6 +25,23 @@ logger = logging.getLogger(__name__)
 class SkillRouter:
     """Select applicable skills for a given analysis context."""
 
+    # Chip-structure thresholds for skill filtering.
+    # "Trapped" means the vast majority of holders are underwater;
+    # bottom/volume skills are near-useless in that regime.
+    _CHIP_TRAPPED_PROFIT_RATIO = 0.30   # < 30% in profit → trapped
+    _CHIP_OVERBOUGHT_PROFIT_RATIO = 0.80  # > 80% in profit → overbought
+
+    # Skills that are ineffective when the stock is deeply trapped.
+    _TRAPPED_SKIP_SKILLS: frozenset[str] = frozenset({
+        "bottom_volume",     # relies on volume expansion + bottom formation
+        "volume_breakout",   # breakout above trapped zone extremely unlikely
+    })
+
+    # Skills that are risky when overbought (profit-taking imminent).
+    _OVERBOUGHT_SKIP_SKILLS: frozenset[str] = frozenset({
+        "shrink_pullback",   # pullback from overbought = likely distribution
+    })
+
     def select_skills(
         self,
         ctx: AgentContext,
@@ -58,15 +75,21 @@ class SkillRouter:
             )
             if selected:
                 logger.info("[SkillRouter] regime=%s -> skills: %s", regime, selected)
-                return selected
+                filtered = self._apply_chip_aware_filter(selected, ctx)
+                if filtered != selected:
+                    logger.info("[SkillRouter] chip filter: %s -> %s", selected, filtered)
+                return filtered
 
         default_skills = get_default_router_skill_ids(
             skill_catalog,
             max_count=max_count,
             available_skill_ids=available_ids or None,
         )
-        logger.info("[SkillRouter] using default skills: %s", default_skills)
-        return default_skills
+        filtered = self._apply_chip_aware_filter(default_skills, ctx)
+        if filtered != default_skills:
+            logger.info("[SkillRouter] chip filter (default): %s -> %s", default_skills, filtered)
+        logger.info("[SkillRouter] using default skills: %s", filtered)
+        return filtered
 
     def select_strategies(
         self,
@@ -107,6 +130,60 @@ class SkillRouter:
         if ctx.meta.get("sector_hot"):
             return "sector_hot"
         return None
+
+    @classmethod
+    def _apply_chip_aware_filter(
+        cls,
+        selected: list[str],
+        ctx: AgentContext,
+    ) -> list[str]:
+        """Remove skills incompatible with the current chip structure.
+
+        Rationale
+        --------
+        - **Trapped** (profit_ratio < 30 %): bottom/volume skills are
+          noise — there is no "bottom" to detect, just dead-cat bounces.
+          Drop ``bottom_volume`` and ``volume_breakout``.
+        - **Overbought** (profit_ratio > 80 %): pullback from this zone
+          is likely profit-taking distribution.  Drop ``shrink_pullback``.
+
+        The filter is *conservative*: it never removes ALL skills.
+        At least one skill is always kept so the analysis still runs.
+        """
+        chip = ctx.data.get("chip_distribution")
+        profit_ratio: float | None = None
+        if isinstance(chip, dict):
+            try:
+                profit_ratio = float(chip.get("profit_ratio", 0.5))
+            except (TypeError, ValueError):
+                profit_ratio = None
+
+        if profit_ratio is None:
+            return selected  # no chip data → no filter
+
+        to_skip: set[str] = set()
+
+        if profit_ratio < cls._CHIP_TRAPPED_PROFIT_RATIO:
+            to_skip.update(cls._TRAPPED_SKIP_SKILLS)
+        elif profit_ratio > cls._CHIP_OVERBOUGHT_PROFIT_RATIO:
+            to_skip.update(cls._OVERBOUGHT_SKIP_SKILLS)
+
+        if not to_skip:
+            return selected
+
+        filtered = [s for s in selected if s not in to_skip]
+        if not filtered:
+            # Safety: never empty the skill list entirely
+            filtered = [selected[0]]
+
+        if len(filtered) < len(selected):
+            logger.info(
+                "[SkillRouter] chip-aware filter: profit=%.1f%% removed=%s kept=%s",
+                profit_ratio * 100,
+                [s for s in selected if s not in filtered],
+                filtered,
+            )
+        return filtered
 
     @staticmethod
     def _get_routing_mode() -> str:
