@@ -306,6 +306,12 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        '--no-agent',
+        action='store_true',
+        help='关闭 Agent 多智能体分析，仅使用 Pipeline 量化评分'
+    )
+
+    parser.add_argument(
         '--force-run',
         action='store_true',
         help='跳过交易日检查，强制执行全量分析（Issue #373）'
