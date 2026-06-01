@@ -928,7 +928,7 @@ class StockAnalysisPipeline:
         return AnalysisResult(
             code=code,
             stock_name=stock_name,
-            report_type=ReportType.DETAILED,
+            report_type=ReportType.FULL,
             report_text=(
                 f"## {stock_name}({code}) 分析摘要 (超时回退)\n\n"
                 f"⚠️ AI 分析因超时未能完成。以下为可用数据摘要：\n\n"
