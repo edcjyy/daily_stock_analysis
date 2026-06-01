@@ -772,6 +772,12 @@ class _DatabaseManagerMeta(type):
             return super().__call__(*args, **kwargs)
 
 
+def _normalize_code(code: str) -> str:
+    """Normalize stock code to canonical form (e.g. 601677 → 601677.SH)."""
+    from data_provider.base import normalize_stock_code, canonical_stock_code
+    return canonical_stock_code(normalize_stock_code(code))
+
+
 class DatabaseManager(metaclass=_DatabaseManagerMeta):
     """
     数据库管理器 - 单例模式
@@ -1022,6 +1028,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             session.close()
     
     def has_today_data(self, code: str, target_date: Optional[date] = None) -> bool:
+        code = _normalize_code(code)
         """
         检查是否已有指定日期的数据
         
@@ -1053,6 +1060,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             return result is not None
 
     def has_sufficient_history(self, code: str, min_days: int = 60) -> bool:
+        code = _normalize_code(code)
         """Check if DB has enough historical daily data for multi-period analysis."""
         with self.get_session() as session:
             count = session.execute(
@@ -1224,6 +1232,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         source_chain: Optional[Any] = None,
         coverage: Optional[Any] = None,
     ) -> int:
+        code = _normalize_code(code)
         """
         保存基本面快照（P0 write-only）。失败不抛异常，返回写入条数 0/1。
         """
@@ -1712,6 +1721,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         start_date: date, 
         end_date: date
     ) -> List[StockDaily]:
+        code = _normalize_code(code)
         """
         获取指定日期范围的数据
         
@@ -1764,10 +1774,8 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             logger.warning(f"保存数据为空，跳过 {code}")
             return 0
 
-        # Normalize code to canonical form (e.g. 601677 → 601677.SH)
-        # so Agent tools and Pipeline always store under the same key.
-        from data_provider.base import normalize_stock_code, canonical_stock_code
-        code = canonical_stock_code(normalize_stock_code(code))
+        # Normalize code to canonical form at write boundary
+        code = _normalize_code(code)
 
         now = datetime.now()
         records_by_date: Dict[date, Dict[str, Any]] = {}
