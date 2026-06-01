@@ -1051,6 +1051,14 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             ).scalar_one_or_none()
             
             return result is not None
+
+    def has_sufficient_history(self, code: str, min_days: int = 60) -> bool:
+        """Check if DB has enough historical daily data for multi-period analysis."""
+        with self.get_session() as session:
+            count = session.execute(
+                select(func.count()).where(StockDaily.code == code)
+            ).scalar()
+            return (count or 0) >= min_days
     
     def get_latest_data(
         self, 

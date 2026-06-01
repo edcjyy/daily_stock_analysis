@@ -283,16 +283,25 @@ class StockAnalysisPipeline:
                 code, current_time=current_time
             )
 
-            # 断点续传检查：如果最新可复用交易日的数据已存在，则跳过
-            if not force_refresh and self.db.has_today_data(code, target_date):
+            # 断点续传检查：需要同时满足 (a) 今日数据已存在 (b) 历史数据足够计算MA60
+            today_exists = self.db.has_today_data(code, target_date)
+            has_sufficient_history = today_exists and self.db.has_sufficient_history(
+                code, min_days=100
+            )
+            if not force_refresh and today_exists and has_sufficient_history:
                 logger.info(
-                    f"{stock_name}({code}) {target_date} 数据已存在，跳过获取（断点续传）"
+                    f"{stock_name}({code}) {target_date} 数据已存在（含充足历史），跳过获取（断点续传）"
                 )
                 return True, None
+            elif not force_refresh and today_exists:
+                logger.info(
+                    f"{stock_name}({code}) {target_date} 数据已存在但历史不足，补拉完整数据"
+                )
 
             # 从数据源获取数据
+            # days=100 ensures ~130 trading days for MA60/momentum/chg60 calculations
             logger.info(f"{stock_name}({code}) 开始从数据源获取数据...")
-            df, source_name = self.fetcher_manager.get_daily_data(code, days=30)
+            df, source_name = self.fetcher_manager.get_daily_data(code, days=100)
 
             if df is None or df.empty:
                 return False, "获取数据为空"
