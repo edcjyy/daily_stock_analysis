@@ -145,9 +145,10 @@ class TrendAnalysisResult:
     # 外部数据(由 Pipeline 注入)
     chip_profit_ratio: float = 0.0   # 筹码获利比例
     chip_concentration: float = 0.0  # 筹码集中度(90%)
-    main_net_inflow_5d: float = 0.0  # 主力5日净流入
+    main_net_inflow_5d: float = 0.0  # 主力5日净流入 (万元)
     pe_ratio: float = 0.0            # PE
     pb_ratio: float = 0.0            # PB
+    total_mv: float = 0.0            # 总市值 (万元)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -354,6 +355,7 @@ class StockTrendAnalyzer:
             val_data = val.get('data', val) if isinstance(val, dict) else {}
             result.pe_ratio = float(val_data.get('pe_ratio', 0) or 0)
             result.pb_ratio = float(val_data.get('pb_ratio', 0) or 0)
+            result.total_mv = float(val_data.get('total_mv', 0) or 0)
 
         # ── 8. 生成买入信号（在所有数据注入之后）──
         self._generate_signal(result)
@@ -879,14 +881,28 @@ class StockTrendAnalyzer:
             if flow_score >= 2:
                 reasons.append(f"✅ 主力5日净流入{inflow/1e4:.1f}亿")
         elif inflow < 0:
-            # inflow is in 万元 (Tushare/Akshare moneyflow convention)
+            # inflow in 万元. Prefer relative-to-market-cap when total_mv available.
             outflow_wan = abs(inflow)
-            if outflow_wan < 5000:      # < 5000万 → noise
-                flow_score = 3; reasons.append(f"⚡ 主力微幅流出{outflow_wan:.0f}万，噪声级别")
-            elif outflow_wan < 20000:   # 5000万~2亿 → moderate
-                flow_score = 1; risks.append(f"⚠️ 主力5日净流出{outflow_wan/1e4:.1f}亿")
-            else:                       # > 2亿 → significant
-                flow_score = 0; risks.append(f"⚠️ 主力持续流出{outflow_wan/1e4:.1f}亿")
+            mv_wan = result.total_mv  # also in 万元
+
+            if mv_wan > 0:
+                pct_of_mv = outflow_wan / mv_wan * 100  # as % of market cap
+                if pct_of_mv < 0.1:      # < 0.1% of market cap → noise
+                    flow_score = 3; reasons.append(f"⚡ 主力微幅流出{pct_of_mv:.2f}%市值，噪声级别")
+                elif pct_of_mv < 0.5:     # 0.1%-0.5% → mild concern
+                    flow_score = 2; risks.append(f"⚡ 主力流出占市值{pct_of_mv:.2f}%")
+                elif pct_of_mv < 1.0:     # 0.5%-1.0% → moderate
+                    flow_score = 1; risks.append(f"⚠️ 主力5日净流出{outflow_wan/1e4:.1f}亿({pct_of_mv:.2f}%市值)")
+                else:                      # > 1% → significant
+                    flow_score = 0; risks.append(f"⚠️ 主力持续流出{outflow_wan/1e4:.1f}亿({pct_of_mv:.2f}%市值)")
+            else:
+                # Fallback: absolute thresholds when total_mv unavailable
+                if outflow_wan < 5000:
+                    flow_score = 3; reasons.append(f"⚡ 主力微幅流出{outflow_wan:.0f}万，噪声级别")
+                elif outflow_wan < 20000:
+                    flow_score = 1; risks.append(f"⚠️ 主力5日净流出{outflow_wan/1e4:.1f}亿")
+                else:
+                    flow_score = 0; risks.append(f"⚠️ 主力持续流出{outflow_wan/1e4:.1f}亿")
         score += flow_score
 
         # ============================================================

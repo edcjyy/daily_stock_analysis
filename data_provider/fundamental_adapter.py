@@ -443,6 +443,7 @@ class AkshareFundamentalAdapter:
                     "main_net_inflow": net_inflow,
                     "inflow_5d": inflow_5d,
                     "inflow_10d": inflow_10d,
+                    "_unit": "wan_yuan",  # 明确标注单位，防止上游 API 单位不一致
                 }
                 result["source_chain"].append(f"capital_stock:{stock_source}")
 
