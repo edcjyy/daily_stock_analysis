@@ -895,6 +895,8 @@ class Config:
     enable_realtime_quote: bool = True
     # 盘中实时技术面：启用时用实时价计算 MA/多头排列（Issue #234）；关闭则用昨日收盘
     enable_realtime_technical_indicators: bool = True
+    # 强制离线模式：即使盘中也不追加实时K线，所有指标用纯历史数据（调试/回测用）
+    force_offline_analysis: bool = False
     # 筹码分布开关（该接口不稳定，云端部署建议关闭）
     enable_chip_distribution: bool = True
     # 东财接口补丁开关
@@ -916,10 +918,10 @@ class Config:
     enable_fundamental_pipeline: bool = True
     # 基本面阶段总预算（秒）
     fundamental_stage_timeout_seconds: float = FUNDAMENTAL_STAGE_TIMEOUT_SECONDS_DEFAULT
-    # 单能力源调用超时（秒）
-    fundamental_fetch_timeout_seconds: float = 8.0
-    # 单能力失败重试次数（已包含首次）
-    fundamental_retry_max: int = 1
+    # 单能力源调用超时（秒）；盘中 Tushare 代理可能较慢，提额避免 budget 耗尽
+    fundamental_fetch_timeout_seconds: float = 10.0
+    # 单能力失败重试次数（已包含首次）；应对代理端 HTTP 429 瞬时限流
+    fundamental_retry_max: int = 2
     # 基本面上下文短 TTL（秒）
     fundamental_cache_ttl_seconds: int = 120
     # 基本面缓存最大条目数（避免长时间运行内存增长）
@@ -1730,6 +1732,7 @@ class Config:
             enable_realtime_technical_indicators=os.getenv(
                 'ENABLE_REALTIME_TECHNICAL_INDICATORS', 'true'
             ).lower() == 'true',
+            force_offline_analysis=os.getenv('FORCE_OFFLINE_ANALYSIS', 'false').lower() == 'true',
             enable_chip_distribution=os.getenv('ENABLE_CHIP_DISTRIBUTION', 'true').lower() == 'true',
             # 东财接口补丁开关
             enable_eastmoney_patch=os.getenv('ENABLE_EASTMONEY_PATCH', 'false').lower() == 'true',
@@ -1750,11 +1753,11 @@ class Config:
             ),
             fundamental_fetch_timeout_seconds=parse_env_float(
                 os.getenv('FUNDAMENTAL_FETCH_TIMEOUT_SECONDS'),
-                3.0,
+                10.0,
                 field_name='FUNDAMENTAL_FETCH_TIMEOUT_SECONDS',
                 minimum=0.0,
             ),
-            fundamental_retry_max=parse_env_int(os.getenv('FUNDAMENTAL_RETRY_MAX'), 1, field_name='FUNDAMENTAL_RETRY_MAX', minimum=0),
+            fundamental_retry_max=parse_env_int(os.getenv('FUNDAMENTAL_RETRY_MAX'), 2, field_name='FUNDAMENTAL_RETRY_MAX', minimum=0),
             fundamental_cache_ttl_seconds=parse_env_int(
                 os.getenv('FUNDAMENTAL_CACHE_TTL_SECONDS'),
                 120,
