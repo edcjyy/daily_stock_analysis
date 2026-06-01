@@ -304,15 +304,14 @@ class StockTrendAnalyzer:
         # 6. RSI 分析
         self._analyze_rsi(df, result)
 
-        # 7. 生成买入信号
-        self._generate_signal(result)
+        # ── 7. 新因子: 数据注入（必须在评分前）──
 
-        # ── 8. 新因子: 多周期动量 ──
+        # 7a. 多周期动量
         result.change_5d = float(_pct_change(df, 5))
         result.change_20d = float(_pct_change(df, 20))
         result.change_60d = float(_pct_change(df, 60))
 
-        # ── 9. 新因子: 日内K线结构 ──
+        # 7b. 日内K线结构
         latest = df.iloc[-1]
         o, h, l, c = float(latest['open']), float(latest['high']), float(latest['low']), float(latest['close'])
         body = abs(c - o) / o if o > 0 else 0
@@ -321,7 +320,7 @@ class StockTrendAnalyzer:
         result.lower_shadow_pct = round((min(c, o) - l) / o * 100, 2) if o > 0 else 0
         result.is_bullish_candle = c > o
 
-        # ── 10. 新因子: 外部数据注入 ──
+        # 7c. 外部数据（筹码、资金流、估值）
         if chip_data:
             result.chip_profit_ratio = float(chip_data.get('profit_ratio', 0))
             try:
@@ -335,6 +334,9 @@ class StockTrendAnalyzer:
             val_data = val.get('data', val) if isinstance(val, dict) else {}
             result.pe_ratio = float(val_data.get('pe_ratio', 0) or 0)
             result.pb_ratio = float(val_data.get('pb_ratio', 0) or 0)
+
+        # ── 8. 生成买入信号（在所有数据注入之后）──
+        self._generate_signal(result)
 
         logger.info(
             "[TrendAnalyzer] %s external: chip=%.1f%% conc=%.1f%% flow=%.0f PE=%.1f PB=%.2f",
