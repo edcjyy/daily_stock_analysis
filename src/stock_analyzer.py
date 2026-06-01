@@ -875,17 +875,18 @@ class StockTrendAnalyzer:
         flow_score = 0
         inflow = result.main_net_inflow_5d
         if inflow > 0:
-            flow_score = min(5, int(inflow / 20000000))  # 每2000万+1分, 上限5
+            flow_score = min(5, int(inflow / 5000))  # 每5000万+1分, 上限5
             if flow_score >= 2:
-                reasons.append(f"✅ 主力5日净流入{inflow/1e4:.0f}万")
+                reasons.append(f"✅ 主力5日净流入{inflow/1e4:.1f}亿")
         elif inflow < 0:
-            outflow_pct = abs(inflow) / 1e8  # 相对亿元
-            if outflow_pct < 0.5:    # 流出<5000万
-                flow_score = 3; reasons.append(f"⚡ 主力微幅流出{abs(inflow)/1e4:.0f}万，噪声级别")
-            elif outflow_pct < 2:    # 流出5000万-2亿
-                flow_score = 1; risks.append(f"⚠️ 主力5日净流出{abs(inflow)/1e4:.0f}万")
-            else:
-                flow_score = 0; risks.append(f"⚠️ 主力持续流出{abs(inflow)/1e4:.0f}万")
+            # inflow is in 万元 (Tushare/Akshare moneyflow convention)
+            outflow_wan = abs(inflow)
+            if outflow_wan < 5000:      # < 5000万 → noise
+                flow_score = 3; reasons.append(f"⚡ 主力微幅流出{outflow_wan:.0f}万，噪声级别")
+            elif outflow_wan < 20000:   # 5000万~2亿 → moderate
+                flow_score = 1; risks.append(f"⚠️ 主力5日净流出{outflow_wan/1e4:.1f}亿")
+            else:                       # > 2亿 → significant
+                flow_score = 0; risks.append(f"⚠️ 主力持续流出{outflow_wan/1e4:.1f}亿")
         score += flow_score
 
         # ============================================================
