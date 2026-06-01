@@ -2560,7 +2560,7 @@ class DataFetcherManager:
                 rows = session.execute(
                     text(
                         "SELECT payload FROM fundamental_snapshot "
-                        "WHERE code = :code ORDER BY created_at DESC LIMIT 10"
+                        "WHERE code = :code ORDER BY created_at DESC LIMIT 50"
                     ),
                     {"code": raw_code},
                 ).fetchall()
