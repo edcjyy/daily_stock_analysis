@@ -929,6 +929,25 @@ class StockTrendAnalyzer:
         result.signal_reasons = reasons
         result.risk_factors = risks
 
+        # Per-factor score diagnostics for verification
+        logger.info(
+            "[Scoring] %s total=%d | ma5=%.2f ma10=%.2f ma20=%.2f bias=%.2f "
+            "vol_ratio=%.2f vol_status=%s macd=%s rsi_12=%.1f "
+            "chip=%.1f%% conc=%.1f%% flow=%.0f PE=%.1f PB=%.2f "
+            "chg5=%.1f chg20=%.1f chg60=%.1f candle=%s body=%.2f%% "
+            "| factors=%s",
+            result.code, score,
+            result.ma5, result.ma10, result.ma20, result.bias_ma5,
+            result.volume_ratio_5d, result.volume_status.value if result.volume_status else '?',
+            result.macd_status.value if result.macd_status else '?',
+            result.rsi_12,
+            result.chip_profit_ratio, result.chip_concentration,
+            result.main_net_inflow_5d, result.pe_ratio, result.pb_ratio,
+            result.change_5d, result.change_20d, result.change_60d,
+            'bull' if result.is_bullish_candle else 'bear', result.body_pct,
+            result.signal_reasons[:8],
+        )
+
         if score >= 75 and result.trend_status in [TrendStatus.STRONG_BULL, TrendStatus.BULL]:
             result.buy_signal = BuySignal.STRONG_BUY
         elif score >= 60 and result.trend_status in [TrendStatus.STRONG_BULL, TrendStatus.BULL, TrendStatus.WEAK_BULL]:
