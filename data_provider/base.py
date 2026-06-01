@@ -2828,10 +2828,28 @@ class DataFetcherManager:
         else:
             capital_flow_budget = min(fetch_timeout, remaining_seconds)
             capital_flow_start = time.time()
-            result_ctx["capital_flow"] = self.get_capital_flow_context(
-                stock_code,
-                budget_seconds=capital_flow_budget,
-            )
+            if capital_flow_budget > 0:
+                result_ctx["capital_flow"] = self.get_capital_flow_context(
+                    stock_code,
+                    budget_seconds=capital_flow_budget,
+                )
+            else:
+                # Stage budget exhausted, but try DB cache as fallback
+                db_fallback = self._get_cached_capital_flow(stock_code)
+                if db_fallback:
+                    logger.info("[fundamental.capital_flow] using DB cache (stage budget exhausted)")
+                    result_ctx["capital_flow"] = self._build_fundamental_block(
+                        "ok",
+                        db_fallback,
+                        [{"provider": "db_cache", "result": "ok", "duration_ms": 0}],
+                    )
+                else:
+                    result_ctx["capital_flow"] = self._build_fundamental_block(
+                        "failed",
+                        {},
+                        [{"provider": "fundamental_pipeline", "result": "failed", "duration_ms": 0}],
+                        ["fundamental stage timeout"],
+                    )
             _consume_budget(int((time.time() - capital_flow_start) * 1000))
 
             dragon_tiger_budget = min(fetch_timeout, remaining_seconds)
