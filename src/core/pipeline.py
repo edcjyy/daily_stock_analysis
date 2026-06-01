@@ -165,7 +165,13 @@ class StockAnalysisPipeline:
             self.config.save_context_snapshot if save_context_snapshot is None else save_context_snapshot
         )
         self.progress_callback = progress_callback
-        self.analysis_skills = list(analysis_skills) if analysis_skills is not None else None
+        # If config.agent_skills is explicitly empty (--no-agent), ignore request skills too
+        configured_skills = getattr(self.config, 'agent_skills', None)
+        disable_agent = isinstance(configured_skills, list) and not configured_skills
+        self.analysis_skills = (
+            None if disable_agent
+            else (list(analysis_skills) if analysis_skills is not None else None)
+        )
         self._stock_name_cache: Dict[str, str] = {}  # code → name, per-session cache
         
         # 初始化各模块
@@ -1002,7 +1008,7 @@ class StockAnalysisPipeline:
                 f"## {stock_name}({code}) 分析摘要 (超时回退)\n\n"
                 f"⚠️ AI 分析因超时未能完成。以下为可用数据摘要：\n\n"
                 f"- 最新价: {getattr(realtime_quote, 'price', 'N/A') if realtime_quote else 'N/A'}\n"
-                f"- 技术趋势: {trend_result.trend if trend_result else 'N/A'}\n"
+                f"- 技术趋势: {trend_result.trend_status.value if trend_result else 'N/A'}\n"
                 f"- 基本面: {'已加载' if fundamental_context else '未加载'}\n\n"
                 f"请稍后重试或增加 LLM_TIMEOUT_SECONDS 配置。"
             ),
