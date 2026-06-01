@@ -1764,6 +1764,11 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             logger.warning(f"保存数据为空，跳过 {code}")
             return 0
 
+        # Normalize code to canonical form (e.g. 601677 → 601677.SH)
+        # so Agent tools and Pipeline always store under the same key.
+        from data_provider.base import normalize_stock_code, canonical_stock_code
+        code = canonical_stock_code(normalize_stock_code(code))
+
         now = datetime.now()
         records_by_date: Dict[date, Dict[str, Any]] = {}
         for row in df.to_dict(orient='records'):
