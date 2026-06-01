@@ -2588,6 +2588,36 @@ class DataFetcherManager:
             logger.debug("[fundamental.capital_flow] DB cache lookup failed: %s", e)
         return None
 
+    def _fetch_tushare_extensions(self, stock_code: str) -> Dict[str, Any]:
+        """Batch-fetch all available Tushare extension APIs. Fail-open per block."""
+        extensions: Dict[str, Any] = {}
+        if not os.getenv('TUSHARE_TOKEN'):
+            return extensions
+        tushare = self._get_fetcher_by_name("TushareFetcher", "fundamental")
+        if tushare is None:
+            return extensions
+
+        fetches = [
+            ("margin_detail", lambda: tushare.get_margin_detail(stock_code)),
+            ("stk_factor", lambda: tushare.get_stk_factor(stock_code)),
+            ("fina_indicator", lambda: tushare.get_fina_indicator(stock_code)),
+            ("forecast", lambda: tushare.get_forecast(stock_code)),
+            ("stk_holdernumber", lambda: tushare.get_stk_holdernumber(stock_code)),
+            ("top10_holders", lambda: tushare.get_top10_holders(stock_code)),
+            ("pledge_stat", lambda: tushare.get_pledge_stat(stock_code)),
+        ]
+        for name, fn in fetches:
+            try:
+                t0 = time.time()
+                result = fn()
+                cost = int((time.time() - t0) * 1000)
+                if isinstance(result, dict):
+                    result["_duration_ms"] = cost
+                    extensions[name] = result
+            except Exception:
+                pass
+        return extensions
+
     def get_fundamental_context(
         self,
         stock_code: str,
@@ -2865,6 +2895,15 @@ class DataFetcherManager:
                 stock_code,
                 budget_seconds=min(fetch_timeout, remaining_seconds),
             )
+
+            # Tushare extension APIs (fail-open, independent of stage budget)
+            if not is_etf:
+                tushare_ext = self._fetch_tushare_extensions(stock_code)
+                result_ctx["tushare_extensions"] = tushare_ext
+                logger.debug(
+                    "[fundamental] tushare_extensions: %d APIs returned",
+                    len(tushare_ext),
+                )
 
         block_statuses = {
             "valuation": result_ctx["valuation"].get("status", "not_supported"),

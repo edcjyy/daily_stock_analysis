@@ -1171,6 +1171,191 @@ class TushareFetcher(BaseFetcher):
             logger.debug("[Tushare] moneyflow failed for %s: %s", stock_code, e)
             return None
 
+    # ═══════════════════════════════════════════════════════════════
+    # Extended Tushare API wrappers (all via _TushareHttpClient proxy)
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_margin_detail(self, stock_code: str, days: int = 5) -> Optional[Dict[str, Any]]:
+        """融资融券明细 (pro_api.margin_detail). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "margin_detail", ts_code=ts_code,
+                start_date=(datetime.now() - pd.Timedelta(days=days + 3)).strftime('%Y%m%d'),
+                end_date=datetime.now().strftime('%Y%m%d'),
+            )
+            if df is None or df.empty:
+                return None
+            latest = df.iloc[-1]
+            return {
+                "rzye": float(latest.get("rzye", 0) or 0),  # 融资余额(元)
+                "rzmre": float(latest.get("rzmre", 0) or 0),  # 融资买入额
+                "rqye": float(latest.get("rqye", 0) or 0),  # 融券余额
+                "rzye_5d_chg": float(df["rzye"].tail(5).diff().sum()) if len(df) >= 5 else 0,
+                "_unit": "yuan",
+                "_source": "tushare_margin_detail",
+            }
+        except Exception:
+            return None
+
+    def get_stk_factor(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """股票因子 (pro_api.stk_factor). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "stk_factor", ts_code=ts_code,
+                start_date=(datetime.now() - pd.Timedelta(days=7)).strftime('%Y%m%d'),
+                end_date=datetime.now().strftime('%Y%m%d'),
+            )
+            if df is None or df.empty:
+                return None
+            latest = df.iloc[-1]
+            return {
+                "volatility_20d": float(latest.get("vol20", 0) or 0),
+                "turnover_rate": float(latest.get("turnover_rate", 0) or 0),
+                "beta": float(latest.get("beta", 0) or 0),
+                "_source": "tushare_stk_factor",
+            }
+        except Exception:
+            return None
+
+    def get_hsgt_top10(self, days: int = 3) -> Optional[pd.DataFrame]:
+        """沪深港通十大成交股 (pro_api.hsgt_top10). Points: 2000."""
+        try:
+            df = self._call_api_with_rate_limit(
+                "hsgt_top10",
+                trade_date=(datetime.now() - pd.Timedelta(days=1)).strftime('%Y%m%d'),
+            )
+            return df if df is not None and not df.empty else None
+        except Exception:
+            return None
+
+    def get_fina_indicator(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """财务指标 (pro_api.fina_indicator). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "fina_indicator", ts_code=ts_code, period="2026Q1",
+                fields="ts_code,roe,roe_yoy,grossprofit_margin,netprofit_margin,debt_to_assets",
+            )
+            if df is None or df.empty:
+                return None
+            latest = df.iloc[-1]
+            return {
+                "roe": float(latest.get("roe", 0) or 0),
+                "roe_yoy": float(latest.get("roe_yoy", 0) or 0),
+                "gross_margin": float(latest.get("grossprofit_margin", 0) or 0),
+                "net_margin": float(latest.get("netprofit_margin", 0) or 0),
+                "debt_ratio": float(latest.get("debt_to_assets", 0) or 0),
+                "_source": "tushare_fina_indicator",
+            }
+        except Exception:
+            return None
+
+    def get_forecast(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """业绩预告 (pro_api.forecast). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "forecast", ts_code=ts_code,
+                period=(datetime.now() - pd.Timedelta(days=90)).strftime('%Y%m%d'),
+            )
+            if df is None or df.empty:
+                return None
+            latest = df.iloc[-1]
+            p_change_min = float(latest.get("p_change_min", 0) or 0)
+            return {
+                "forecast_type": str(latest.get("type", "")),
+                "p_change_min": p_change_min,  # 净利润变动下限(%)
+                "has_positive_forecast": p_change_min > 0,
+                "_source": "tushare_forecast",
+            }
+        except Exception:
+            return None
+
+    def get_stk_holdernumber(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """股东人数 (pro_api.stk_holdernumber). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "stk_holdernumber", ts_code=ts_code,
+                start_date=(datetime.now() - pd.Timedelta(days=180)).strftime('%Y%m%d'),
+                end_date=datetime.now().strftime('%Y%m%d'),
+            )
+            if df is None or df.empty or len(df) < 2:
+                return None
+            prev = float(df.iloc[-2].get("holder_num", 0) or 0)
+            curr = float(df.iloc[-1].get("holder_num", 0) or 0)
+            return {
+                "holder_num": curr,
+                "holder_num_change_pct": (curr - prev) / prev * 100 if prev > 0 else 0,
+                "concentrating": curr < prev,  # 股东减少=筹码集中
+                "_source": "tushare_holdernumber",
+            }
+        except Exception:
+            return None
+
+    def get_top10_holders(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """前十大股东 (pro_api.top10_holders). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit(
+                "top10_holders", ts_code=ts_code,
+                period=(datetime.now() - pd.Timedelta(days=90)).strftime('%Y%m%d'),
+            )
+            if df is None or df.empty:
+                return None
+            top10_hold_pct = float(df["hold_ratio"].head(10).sum()) if "hold_ratio" in df.columns else 0
+            return {
+                "top10_hold_pct": top10_hold_pct,
+                "institution_dominant": top10_hold_pct > 50,
+                "_source": "tushare_top10_holders",
+            }
+        except Exception:
+            return None
+
+    def get_pledge_stat(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """股权质押统计 (pro_api.pledge_stat). Points: 2000."""
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            df = self._call_api_with_rate_limit("pledge_stat", ts_code=ts_code)
+            if df is None or df.empty:
+                return None
+            latest = df.iloc[-1]
+            return {
+                "pledge_ratio": float(latest.get("pledge_ratio", 0) or 0),
+                "high_risk": float(latest.get("pledge_ratio", 0) or 0) > 50,
+                "_source": "tushare_pledge_stat",
+            }
+        except Exception:
+            return None
+
+    def get_index_daily(self, index_code: str = "000001.SH", days: int = 60) -> Optional[pd.DataFrame]:
+        """指数日线 (pro_api.index_daily). Points: 免费."""
+        try:
+            df = self._call_api_with_rate_limit(
+                "index_daily", ts_code=index_code,
+                start_date=(datetime.now() - pd.Timedelta(days=days + 5)).strftime('%Y%m%d'),
+                end_date=datetime.now().strftime('%Y%m%d'),
+            )
+            return df if df is not None and not df.empty else None
+        except Exception:
+            return None
+
     def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[list, list]]:
         """
         获取行业板块涨跌榜 (Tushare Pro)
