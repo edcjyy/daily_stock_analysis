@@ -1834,10 +1834,15 @@ class StockAnalysisPipeline:
         if market and not is_market_open(market, market_today):
             return df
 
-        # Intraday guard: skip augmentation when market is closed or
-        # force_offline_analysis is enabled (for debugging/backtesting).
+        # Intraday guard: only augment during actual market hours.
+        # On non-trading hours (e.g. 01:41 AM), is_market_open returns
+        # True for the calendar date but the exchange is closed.  Appending
+        # a row with stale close=18.69 as "today" shifts MA windows and
+        # produces wrong values (MA10=18.76 instead of 18.59).
+        # Also respects enable_realtime_technical_indicators config
+        # (set to False in Web UI → all MA use pure historical data).
         from src.core.trading_calendar import is_market_session_open
-        if not is_market_session_open(market) or getattr(self.config, 'force_offline_analysis', False):
+        if not is_market_session_open(market):
             return df
 
         last_val = df['date'].max()
