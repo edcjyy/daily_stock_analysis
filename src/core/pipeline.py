@@ -84,16 +84,19 @@ _SINGLE_STOCK_NOTIFY_LOCK_INIT_GUARD = threading.Lock()
 
 
 def _chip_to_dict(chip_data) -> dict:
-    """Extract chip distribution fields robustly from any chip object type."""
+    """Extract chip distribution fields robustly, converting to percentages."""
     if chip_data is None:
         return {}
     if isinstance(chip_data, dict):
         return chip_data
     result = {}
-    for field in ('profit_ratio', 'concentration_90', 'concentration_70', 'concentration', 'avg_cost'):
+    for field, as_pct in (('profit_ratio', True), ('concentration_90', True),
+                          ('concentration_70', True), ('concentration', True),
+                          ('avg_cost', False)):
         val = getattr(chip_data, field, None)
         if val is not None:
-            result[field] = float(val)
+            v = float(val)
+            result[field] = v * 100 if as_pct and v < 1 else v
     return result
 
 

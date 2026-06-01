@@ -846,6 +846,11 @@ def main() -> int:
     if args.webui_only:
         args.serve_only = True
 
+    # --no-agent: override config to disable agent pipeline (for debugging quant scoring)
+    if getattr(args, 'no_agent', False):
+        config.agent_skills = []
+        logger.info("--no-agent: Agent 分析已关闭，仅使用 Pipeline 量化评分")
+
     # 兼容旧版 WEBUI_ENABLED 环境变量
     if config.webui_enabled and not (args.serve or args.serve_only):
         args.serve = True
