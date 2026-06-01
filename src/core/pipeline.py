@@ -100,25 +100,27 @@ def _chip_to_dict(chip_data) -> dict:
 def _extract_capital_flow(fundamental_context: dict) -> dict:
     """Extract capital flow fields from fundamental context for trend analyzer."""
     if not isinstance(fundamental_context, dict):
-        logger.debug("[_extract_capital_flow] fundamental_context is not dict: %s", type(fundamental_context))
+        logger.warning("[_extract_capital_flow] fundamental_context type=%s", type(fundamental_context))
         return {}
     cf = fundamental_context.get("capital_flow", {})
     if not isinstance(cf, dict):
-        logger.debug("[_extract_capital_flow] capital_flow not dict: %s type=%s", cf.keys() if isinstance(cf, dict) else type(cf))
+        logger.warning("[_extract_capital_flow] capital_flow missing or not dict")
         return {}
-    # fundamental_context['capital_flow'] structure: {"status": "ok", "data": {...}}
-    cfd = cf.get("data", cf)
-    if not isinstance(cfd, dict):
-        logger.debug("[_extract_capital_flow] data not dict")
+    cf_status = cf.get("status", "unknown")
+    cf_data = cf.get("data", {}) if isinstance(cf, dict) else {}
+    if not isinstance(cf_data, dict):
+        logger.warning("[_extract_capital_flow] capital_flow.data type=%s", type(cf_data))
         return {}
-    sf = cfd.get("stock_flow", cfd)
+    sf = cf_data.get("stock_flow", {}) if isinstance(cf_data, dict) else {}
     if not isinstance(sf, dict):
-        logger.debug("[_extract_capital_flow] stock_flow not dict")
+        logger.warning("[_extract_capital_flow] stock_flow type=%s", type(sf))
         return {}
-    result = {"main_net_inflow": sf.get("main_net_inflow", 0) or 0}
-    logger.info("[_extract_capital_flow] %s main_net_inflow=%.0f", 
-                fundamental_context.get("market", "?"), result["main_net_inflow"])
-    return result
+    main_inflow = sf.get("main_net_inflow", 0)
+    logger.info(
+        "[_extract_capital_flow] status=%s main_net_inflow=%s stock_flow_keys=%s",
+        cf_status, main_inflow, list(sf.keys())[:5],
+    )
+    return {"main_net_inflow": float(main_inflow) if main_inflow else 0}
 
 
 class StockAnalysisPipeline:
@@ -456,6 +458,12 @@ class StockAnalysisPipeline:
                         chip_data=_chip_to_dict(chip_data),
                         capital_flow=_extract_capital_flow(fundamental_context),
                         fundamental=fundamental_context,
+                    )
+                    logger.info(
+                        "%s(%s) 基本面上下文: status=%s coverage=%s",
+                        stock_name, code,
+                        fundamental_context.get("status", "?"),
+                        fundamental_context.get("coverage", {}),
                     )
                     logger.info(f"{stock_name}({code}) 趋势分析: {trend_result.trend_status.value}, "
                               f"买入信号={trend_result.buy_signal.value}, 评分={trend_result.signal_score}")
