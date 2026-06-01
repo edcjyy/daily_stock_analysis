@@ -439,17 +439,23 @@ class StockAnalysisPipeline:
                 fundamental_context,
             )
 
-            # P0: write-only snapshot, fail-open, no read dependency on this table.
-            try:
-                self.db.save_fundamental_snapshot(
-                    query_id=query_id,
-                    code=code,
-                    payload=fundamental_context,
-                    source_chain=fundamental_context.get("source_chain", []),
-                    coverage=fundamental_context.get("coverage", {}),
-                )
-            except Exception as e:
-                logger.debug(f"{stock_name}({code}) 基本面快照写入失败: {e}")
+            # P0: write-only snapshot. Only persist if context has meaningful data
+            # to avoid filling the table with failed snapshots (every run writes).
+            fc_status = fundamental_context.get("status", "")
+            has_valuation = (
+                fundamental_context.get("valuation", {}).get("status") == "ok"
+            )
+            if fc_status == "ok" or has_valuation:
+                try:
+                    self.db.save_fundamental_snapshot(
+                        query_id=query_id,
+                        code=code,
+                        payload=fundamental_context,
+                        source_chain=fundamental_context.get("source_chain", []),
+                        coverage=fundamental_context.get("coverage", {}),
+                    )
+                except Exception as e:
+                    logger.debug(f"{stock_name}({code}) 基本面快照写入失败: {e}")
 
             # Step 3: 趋势分析（基于交易理念）— 在 Agent 分支之前执行，供两条路径共用
             trend_result: Optional[TrendAnalysisResult] = None
