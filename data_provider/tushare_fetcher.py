@@ -1136,6 +1136,41 @@ class TushareFetcher(BaseFetcher):
 
         return start_date
     
+    def get_individual_moneyflow(self, stock_code: str, days: int = 5) -> Optional[Dict[str, Any]]:
+        """
+        Tushare 个股资金流向 (pro_api.moneyflow).
+
+        Returns dict with stock_flow keys or None on failure.
+        Requires Tushare 2000+ points.
+        """
+        try:
+            ts_code = self._convert_stock_code(stock_code)
+            if not ts_code:
+                return None
+            start_date = (datetime.now() - pd.Timedelta(days=days + 3)).strftime('%Y%m%d')
+            end_date = datetime.now().strftime('%Y%m%d')
+            df = self._call_api_with_rate_limit(
+                "moneyflow", ts_code=ts_code, start_date=start_date, end_date=end_date
+            )
+            if df is None or df.empty:
+                return None
+            row = df.iloc[-1]
+            main_net = float(row.get("net_mf_amount", 0) or 0)   # 主力净流入(万元)
+            inflow_5d = float(df["net_mf_amount"].tail(5).sum())  # 5日累计
+            inflow_10d = float(df["net_mf_amount"].tail(10).sum()) # 10日累计
+            return {
+                "stock_flow": {
+                    "main_net_inflow": main_net,
+                    "inflow_5d": inflow_5d,
+                    "inflow_10d": inflow_10d,
+                    "_unit": "wan_yuan",
+                },
+                "_source": "tushare_moneyflow",
+            }
+        except Exception as e:
+            logger.debug("[Tushare] moneyflow failed for %s: %s", stock_code, e)
+            return None
+
     def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[list, list]]:
         """
         获取行业板块涨跌榜 (Tushare Pro)

@@ -16,6 +16,7 @@
 
 import json
 import logging
+import os
 import random
 import time
 from threading import BoundedSemaphore, RLock, Thread
@@ -2910,7 +2911,7 @@ class DataFetcherManager:
         return result_ctx
 
     def get_capital_flow_context(self, stock_code: str, budget_seconds: Optional[float] = None) -> Dict[str, Any]:
-        """资金流向块（fail-open）。"""
+        """资金流向三级级联: Tushare个股 → Tushare板块 → AkShare → DB缓存."""
         from src.config import get_config
 
         config = get_config()
@@ -2918,67 +2919,98 @@ class DataFetcherManager:
         timeout = float(budget_seconds if budget_seconds is not None else config.fundamental_fetch_timeout_seconds)
         if _market_tag(stock_code) != "cn" or _is_etf_code(stock_code):
             return self._build_fundamental_block(
-                "not_supported",
-                {},
+                "not_supported", {},
                 [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
                 ["not supported"],
             )
 
         if timeout <= 0:
+            db_payload = self._get_cached_capital_flow(stock_code)
+            if db_payload:
+                logger.info("[fundamental.capital_flow] using DB cache (stage budget exhausted)")
+                return self._build_fundamental_block(
+                    "ok", db_payload,
+                    [{"provider": "db_cache", "result": "ok", "duration_ms": 0}],
+                )
             return self._build_fundamental_block(
-                "failed",
-                {},
+                "failed", {},
                 [{"provider": "fundamental_pipeline", "result": "failed", "duration_ms": 0}],
                 ["fundamental stage timeout"],
             )
+
+        errors: List[str] = []
+        source_chain: List[Dict[str, Any]] = []
+
+        # ── Level 1: Tushare 个股 moneyflow ──
+        tushare_ok = bool(os.getenv('TUSHARE_TOKEN'))
+        if tushare_ok:
+            try:
+                tushare = self._get_fetcher_by_name("TushareFetcher", "fundamental")
+                if tushare and hasattr(tushare, "get_individual_moneyflow"):
+                    t1 = time.time()
+                    mf = tushare.get_individual_moneyflow(stock_code, days=5)
+                    cost = int((time.time() - t1) * 1000)
+                    if isinstance(mf, dict) and mf.get("stock_flow"):
+                        logger.info("[fundamental.capital_flow] Tushare moneyflow OK (%dms)", cost)
+                        return self._build_fundamental_block(
+                            "ok", mf,
+                            [{"provider": "tushare_moneyflow", "result": "ok", "duration_ms": cost}],
+                        )
+                    errors.append(f"tushare_moneyflow_failed:{cost}ms")
+            except Exception as e:
+                errors.append(f"tushare_moneyflow_error:{e}")
+
+        # ── Level 2: Tushare 板块 moneyflow (proxy) ──
+        if tushare_ok:
+            try:
+                tushare = self._get_fetcher_by_name("TushareFetcher", "fundamental")
+                if tushare and hasattr(tushare, "get_sector_rankings"):
+                    t2 = time.time()
+                    rankings = tushare.get_sector_rankings(n=5)
+                    cost = int((time.time() - t2) * 1000)
+                    if rankings:
+                        logger.info("[fundamental.capital_flow] Tushare sector flow OK (%dms)", cost)
+                        return self._build_fundamental_block(
+                            "partial",
+                            {"sector_rankings": {"top": rankings[0], "bottom": rankings[1]}},
+                            [{"provider": "tushare_sector_moneyflow", "result": "partial", "duration_ms": cost}],
+                            errors,
+                        )
+                    errors.append(f"tushare_sector_failed:{cost}ms")
+            except Exception as e:
+                errors.append(f"tushare_sector_error:{e}")
+
+        # ── Level 3: AkShare ──
         payload, err, cost_ms = self._run_with_retry(
             lambda: self._fundamental_adapter.get_capital_flow(stock_code),
             timeout,
             "capital_flow",
         )
-        # Fallback: if live API fails, try DB-cached capital flow from earlier run
-        if not isinstance(payload, dict) or not payload.get("stock_flow"):
-            db_payload = self._get_cached_capital_flow(stock_code)
-            if db_payload:
-                logger.info("[fundamental.capital_flow] using DB cache (live API unavailable)")
-                payload = db_payload
-                err = None
-
-        if not isinstance(payload, dict):
+        if isinstance(payload, dict) and payload.get("stock_flow"):
+            logger.info("[fundamental.capital_flow] AkShare capital_flow OK (%dms)", cost_ms)
             return self._build_fundamental_block(
-                "failed",
-                {},
-                [{"provider": "fundamental_pipeline", "result": "failed", "duration_ms": cost_ms}],
-                [err or "capital_flow failed"],
+                "ok", payload,
+                [{"provider": "akshare_capital_flow", "result": "ok", "duration_ms": cost_ms}],
+                errors,
+            )
+        if err:
+            errors.append(f"akshare:{err}")
+
+        # ── Level 4: DB cache ──
+        db_payload = self._get_cached_capital_flow(stock_code)
+        if db_payload:
+            logger.info("[fundamental.capital_flow] using DB cache (all sources failed)")
+            return self._build_fundamental_block(
+                "ok", db_payload,
+                [{"provider": "db_cache_fallback", "result": "ok", "duration_ms": 0}],
+                errors,
             )
 
-        stock_flow = payload.get("stock_flow") or {}
-        sector_rankings = payload.get("sector_rankings") or {}
-        has_stock_flow = False
-        if isinstance(stock_flow, dict):
-            has_stock_flow = any(v is not None for v in stock_flow.values())
-        has_sector_rankings = bool(sector_rankings.get("top")) or bool(sector_rankings.get("bottom"))
-        adapter_status = str(payload.get("status", "not_supported"))
-        if has_stock_flow or has_sector_rankings:
-            capital_flow_status = "ok"
-        elif adapter_status == "not_supported":
-            capital_flow_status = "not_supported"
-        else:
-            capital_flow_status = "partial"
-
+        logger.error("[fundamental.capital_flow] ALL sources failed: %s", errors)
         return self._build_fundamental_block(
-            capital_flow_status,
-            {
-                "stock_flow": payload.get("stock_flow", {}),
-                "sector_rankings": payload.get("sector_rankings", {}),
-            },
-            self._normalize_source_chain(
-                payload.get("source_chain", []),
-                "capital_flow",
-                capital_flow_status,
-                cost_ms,
-            ),
-            list(payload.get("errors", [])) + ([err] if err else []),
+            "failed", {},
+            [{"provider": "fundamental_pipeline", "result": "failed", "duration_ms": 0}],
+            errors,
         )
 
     def get_dragon_tiger_context(self, stock_code: str, budget_seconds: Optional[float] = None) -> Dict[str, Any]:
