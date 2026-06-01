@@ -14,6 +14,7 @@
 3. 指数退避重试机制
 """
 
+import json
 import logging
 import random
 import time
@@ -2543,16 +2544,26 @@ class DataFetcherManager:
         }
 
     def _get_cached_capital_flow(self, stock_code: str) -> Optional[Dict[str, Any]]:
-        """Try DB-cached capital flow from a previous successful run."""
+        """Try DB-cached capital flow from last successful fundamental snapshot."""
         try:
             from src.storage import get_db
+            from sqlalchemy import text
             db = get_db()
             canonical = normalize_stock_code(stock_code)
-            # Get recent fundamental snapshots for this stock
-            data = db.get_fundamental_snapshot(canonical)
-            if isinstance(data, dict):
-                payload = data.get("payload", {})
-                cf = payload.get("capital_flow", {})
+            with db.get_session() as session:
+                rows = session.execute(
+                    text(
+                        "SELECT payload FROM fundamental_snapshot "
+                        "WHERE code = :code ORDER BY created_at DESC LIMIT 3"
+                    ),
+                    {"code": canonical},
+                ).fetchall()
+            for row in rows:
+                try:
+                    payload = json.loads(row[0]) if isinstance(row[0], str) else (row[0] or {})
+                except Exception:
+                    continue
+                cf = payload.get("capital_flow", {}) if isinstance(payload, dict) else {}
                 cf_data = cf.get("data", {}) if isinstance(cf, dict) else {}
                 if isinstance(cf_data, dict) and cf_data.get("stock_flow"):
                     return cf_data
