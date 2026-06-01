@@ -2544,31 +2544,47 @@ class DataFetcherManager:
         }
 
     def _get_cached_capital_flow(self, stock_code: str) -> Optional[Dict[str, Any]]:
-        """Try DB-cached capital flow from last successful fundamental snapshot."""
+        """Try DB-cached capital flow from last SUCCESSFUL fundamental snapshot.
+
+        The fundamental_snapshot table stores code WITHOUT suffix (e.g. '601677'
+        not '601677.SH'). normalize_stock_code adds the suffix, so query with
+        the raw code.  Also skips snapshots where capital_flow status != 'ok'.
+        """
         try:
             from src.storage import get_db
             from sqlalchemy import text
             db = get_db()
             canonical = normalize_stock_code(stock_code)
+            raw_code = canonical.replace(".SH", "").replace(".SZ", "").replace(".BJ", "")
             with db.get_session() as session:
                 rows = session.execute(
                     text(
                         "SELECT payload FROM fundamental_snapshot "
-                        "WHERE code = :code ORDER BY created_at DESC LIMIT 3"
+                        "WHERE code = :code ORDER BY created_at DESC LIMIT 10"
                     ),
-                    {"code": canonical},
+                    {"code": raw_code},
                 ).fetchall()
             for row in rows:
                 try:
                     payload = json.loads(row[0]) if isinstance(row[0], str) else (row[0] or {})
                 except Exception:
                     continue
-                cf = payload.get("capital_flow", {}) if isinstance(payload, dict) else {}
+                if not isinstance(payload, dict):
+                    continue
+                cf = payload.get("capital_flow", {})
+                if not isinstance(cf, dict):
+                    continue
+                cf_status = cf.get("status", "")
+                if cf_status != "ok":
+                    continue  # skip failed snapshots, only use successful ones
                 cf_data = cf.get("data", {}) if isinstance(cf, dict) else {}
                 if isinstance(cf_data, dict) and cf_data.get("stock_flow"):
+                    logger.info(
+                        "[fundamental.capital_flow] using DB cache from earlier ok snapshot"
+                    )
                     return cf_data
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("[fundamental.capital_flow] DB cache lookup failed: %s", e)
         return None
 
     def get_fundamental_context(
