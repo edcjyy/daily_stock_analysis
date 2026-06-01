@@ -188,6 +188,13 @@ class BaseAgent(ABC):
         # Inject pre-fetched data as a synthetic assistant context
         cached_data = self._inject_cached_data(ctx)
         if cached_data:
+            # System-level directive: pre-computed data takes priority
+            directive = (
+                "[系统提示] 以上 [Pre-fetched] 数据由 Pipeline 预先计算，"
+                "请直接使用，不要通过工具重新获取。优先使用预计算数据，"
+                "只在数据确实缺失时才调用工具。"
+            )
+            messages.append({"role": "system", "content": directive})
             messages.append({"role": "user", "content": cached_data})
             messages.append({"role": "assistant", "content": "Understood, I have the pre-fetched data. Proceeding with analysis."})
 
