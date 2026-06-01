@@ -2542,6 +2542,24 @@ class DataFetcherManager:
             **blocks,
         }
 
+    def _get_cached_capital_flow(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """Try DB-cached capital flow from a previous successful run."""
+        try:
+            from src.storage import get_db
+            db = get_db()
+            canonical = normalize_stock_code(stock_code)
+            # Get recent fundamental snapshots for this stock
+            data = db.get_fundamental_snapshot(canonical)
+            if isinstance(data, dict):
+                payload = data.get("payload", {})
+                cf = payload.get("capital_flow", {})
+                cf_data = cf.get("data", {}) if isinstance(cf, dict) else {}
+                if isinstance(cf_data, dict) and cf_data.get("stock_flow"):
+                    return cf_data
+        except Exception:
+            pass
+        return None
+
     def get_fundamental_context(
         self,
         stock_code: str,
@@ -2873,6 +2891,14 @@ class DataFetcherManager:
             timeout,
             "capital_flow",
         )
+        # Fallback: if live API fails, try DB-cached capital flow from earlier run
+        if not isinstance(payload, dict) or not payload.get("stock_flow"):
+            db_payload = self._get_cached_capital_flow(stock_code)
+            if db_payload:
+                logger.info("[fundamental.capital_flow] using DB cache (live API unavailable)")
+                payload = db_payload
+                err = None
+
         if not isinstance(payload, dict):
             return self._build_fundamental_block(
                 "failed",

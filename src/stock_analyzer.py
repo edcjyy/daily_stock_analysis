@@ -208,6 +208,26 @@ def _pct_change(df: pd.DataFrame, window: int) -> float:
         return 0.0
 
 
+def _validate_result_sanity(result: TrendAnalysisResult, code: str) -> None:
+    """Check computed metrics for implausible values (stale data, DB corruption)."""
+    warnings = []
+    if result.current_price <= 0:
+        warnings.append(f"current_price={result.current_price}")
+    if result.ma5 <= 0 and result.ma20 > 0:
+        warnings.append(f"MA5={result.ma5} but MA20={result.ma20} (inconsistent)")
+    if not (0 <= result.rsi_12 <= 100) and result.rsi_12 != 0:
+        warnings.append(f"RSI12={result.rsi_12} (out of 0-100)")
+    if result.signal_score < 0 or result.signal_score > 100:
+        warnings.append(f"signal_score={result.signal_score} (expected 0-100)")
+    if abs(result.bias_ma5) > 15:
+        warnings.append(f"bias_ma5={result.bias_ma5}% (extreme, possible data error)")
+    if result.ma10 > 0 and result.current_price > result.ma10 * 1.5:
+        warnings.append(f"price/MA10 ratio > 1.5x")
+
+    if warnings:
+        logger.warning("[Sanity] %s implausible metrics: %s", code, "; ".join(warnings))
+
+
 class StockTrendAnalyzer:
     """
     股票趋势分析器
@@ -344,6 +364,9 @@ class StockTrendAnalyzer:
             result.chip_profit_ratio, result.chip_concentration,
             result.main_net_inflow_5d, result.pe_ratio, result.pb_ratio,
         )
+
+        # POST: validate key metrics for sanity
+        _validate_result_sanity(result, code)
 
         return result
     
@@ -874,13 +897,19 @@ class StockTrendAnalyzer:
             (result.change_20d, "20日"),
             (result.change_60d, "60日"),
         ]
-        aligned_count = sum(1 for ch, _ in changes if ch > 0)
-        if aligned_count == 3:
-            momentum_score = 5; reasons.append("✅ 5/20/60日动量全正，中期趋势确认")
-        elif aligned_count == 2:
+        # Only count periods that actually have data (>0 means computed)
+        valid_changes = [(ch, lbl) for ch, lbl in changes if ch != 0.0]
+        total_periods = len(valid_changes) if valid_changes else 1
+        aligned_count = sum(1 for ch, _ in valid_changes if ch > 0)
+        
+        if aligned_count == total_periods and total_periods >= 2:
+            momentum_score = 5; reasons.append("✅ 多周期动量全正，中期趋势确认")
+        elif aligned_count >= 2:
             momentum_score = 3
-        elif aligned_count == 1:
+        elif aligned_count >= 1 and total_periods >= 2:
             momentum_score = 1
+        elif aligned_count == 1 and total_periods == 1:
+            momentum_score = 2  # single period positive, no negative data
         else:
             momentum_score = 0; risks.append("⚠️ 多周期动量全负")
         score += momentum_score
