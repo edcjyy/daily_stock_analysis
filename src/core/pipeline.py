@@ -83,6 +83,24 @@ logger = logging.getLogger(__name__)
 _SINGLE_STOCK_NOTIFY_LOCK_INIT_GUARD = threading.Lock()
 
 
+def _extract_capital_flow(fundamental_context: dict) -> dict:
+    """Extract capital flow fields from fundamental context for trend analyzer."""
+    if not isinstance(fundamental_context, dict):
+        return {}
+    cf = fundamental_context.get("capital_flow", {})
+    if not isinstance(cf, dict):
+        return {}
+    cfd = cf.get("data", cf)
+    if not isinstance(cfd, dict):
+        return {}
+    sf = cfd.get("stock_flow", cfd)
+    if not isinstance(sf, dict):
+        return {}
+    return {
+        "main_net_inflow": sf.get("main_net_inflow", 0) or 0,
+    }
+
+
 class StockAnalysisPipeline:
     """
     股票分析主流程调度器
@@ -413,7 +431,12 @@ class StockAnalysisPipeline:
                     # Issue #234: Augment with realtime for intraday MA calculation
                     if self.config.enable_realtime_quote and realtime_quote:
                         df = self._augment_historical_with_realtime(df, realtime_quote, code)
-                    trend_result = self.trend_analyzer.analyze(df, code)
+                    trend_result = self.trend_analyzer.analyze(
+                        df, code,
+                        chip_data=self._safe_to_dict(chip_data) if chip_data else None,
+                        capital_flow=_extract_capital_flow(fundamental_context),
+                        fundamental=fundamental_context,
+                    )
                     logger.info(f"{stock_name}({code}) 趋势分析: {trend_result.trend_status.value}, "
                               f"买入信号={trend_result.buy_signal.value}, 评分={trend_result.signal_score}")
             except Exception as e:

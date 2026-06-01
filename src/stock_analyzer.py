@@ -132,6 +132,23 @@ class TrendAnalysisResult:
     signal_reasons: List[str] = field(default_factory=list)
     risk_factors: List[str] = field(default_factory=list)
     
+    # ── 新增因子 ──
+    # 多周期动量
+    change_5d: float = 0.0
+    change_20d: float = 0.0
+    change_60d: float = 0.0
+    # 日内K线结构
+    body_pct: float = 0.0            # 实体幅度 (|close-open|/open)
+    upper_shadow_pct: float = 0.0    # 上影线比例
+    lower_shadow_pct: float = 0.0    # 下影线比例
+    is_bullish_candle: bool = False  # 是否阳线
+    # 外部数据(由 Pipeline 注入)
+    chip_profit_ratio: float = 0.0   # 筹码获利比例
+    chip_concentration: float = 0.0  # 筹码集中度(90%)
+    main_net_inflow_5d: float = 0.0  # 主力5日净流入
+    pe_ratio: float = 0.0            # PE
+    pb_ratio: float = 0.0            # PB
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             'code': self.code,
@@ -157,6 +174,14 @@ class TrendAnalysisResult:
             'signal_score': self.signal_score,
             'signal_reasons': self.signal_reasons,
             'risk_factors': self.risk_factors,
+            'change_5d': self.change_5d,
+            'change_20d': self.change_20d,
+            'change_60d': self.change_60d,
+            'body_pct': self.body_pct,
+            'chip_profit_ratio': self.chip_profit_ratio,
+            'main_net_inflow_5d': self.main_net_inflow_5d,
+            'pe_ratio': self.pe_ratio,
+            'pb_ratio': self.pb_ratio,
             'macd_dif': self.macd_dif,
             'macd_dea': self.macd_dea,
             'macd_bar': self.macd_bar,
@@ -168,6 +193,19 @@ class TrendAnalysisResult:
             'rsi_status': self.rsi_status.value,
             'rsi_signal': self.rsi_signal,
         }
+
+
+def _pct_change(df: pd.DataFrame, window: int) -> float:
+    """Calculate percentage change over window days from close prices."""
+    if df is None or df.empty or len(df) < window + 1:
+        return 0.0
+    try:
+        close_series = pd.to_numeric(df['close'], errors='coerce').dropna()
+        if len(close_series) < window + 1:
+            return 0.0
+        return float((close_series.iloc[-1] / close_series.iloc[-window-1] - 1) * 100)
+    except Exception:
+        return 0.0
 
 
 class StockTrendAnalyzer:
@@ -204,13 +242,21 @@ class StockTrendAnalyzer:
         """初始化分析器"""
         pass
     
-    def analyze(self, df: pd.DataFrame, code: str) -> TrendAnalysisResult:
+    def analyze(
+        self, df: pd.DataFrame, code: str,
+        chip_data: dict = None,
+        capital_flow: dict = None,
+        fundamental: dict = None,
+    ) -> TrendAnalysisResult:
         """
         分析股票趋势
         
         Args:
             df: 包含 OHLCV 数据的 DataFrame
             code: 股票代码
+            chip_data: 可选, 筹码分布 {'profit_ratio': 58.2, 'concentration_90': 8.29}
+            capital_flow: 可选, 资金流向 {'main_net_inflow_5d': -8335}
+            fundamental: 可选, 基本面 {'pe_ratio': 11.86, 'pb_ratio': 1.173}
             
         Returns:
             TrendAnalysisResult 分析结果
@@ -260,6 +306,35 @@ class StockTrendAnalyzer:
 
         # 7. 生成买入信号
         self._generate_signal(result)
+
+        # ── 8. 新因子: 多周期动量 ──
+        result.change_5d = float(_pct_change(df, 5))
+        result.change_20d = float(_pct_change(df, 20))
+        result.change_60d = float(_pct_change(df, 60))
+
+        # ── 9. 新因子: 日内K线结构 ──
+        latest = df.iloc[-1]
+        o, h, l, c = float(latest['open']), float(latest['high']), float(latest['low']), float(latest['close'])
+        body = abs(c - o) / o if o > 0 else 0
+        result.body_pct = round(body * 100, 2)
+        result.upper_shadow_pct = round((h - max(c, o)) / o * 100, 2) if o > 0 else 0
+        result.lower_shadow_pct = round((min(c, o) - l) / o * 100, 2) if o > 0 else 0
+        result.is_bullish_candle = c > o
+
+        # ── 10. 新因子: 外部数据注入 ──
+        if chip_data:
+            result.chip_profit_ratio = float(chip_data.get('profit_ratio', 0))
+            try:
+                result.chip_concentration = float(chip_data.get('concentration_90', chip_data.get('concentration', 0)))
+            except (TypeError, ValueError):
+                pass
+        if capital_flow:
+            result.main_net_inflow_5d = float(capital_flow.get('main_net_inflow', 0) or 0)
+        if fundamental:
+            val = fundamental.get('valuation', {})
+            val_data = val.get('data', val) if isinstance(val, dict) else {}
+            result.pe_ratio = float(val_data.get('pe_ratio', 0) or 0)
+            result.pb_ratio = float(val_data.get('pb_ratio', 0) or 0)
 
         return result
     
@@ -585,31 +660,38 @@ class StockTrendAnalyzer:
 
     def _generate_signal(self, result: TrendAnalysisResult) -> None:
         """
-        生成买入信号
+        生成买入信号 — 11 因子评分体系
 
         综合评分系统：
-        - 趋势（30分）：多头排列得分高
-        - 乖离率（20分）：接近 MA5 得分高
-        - 量能（15分）：缩量回调得分高
-        - 支撑（10分）：获得均线支撑得分高
-        - MACD（15分）：金叉和多头得分高
-        - RSI（10分）：超卖和强势得分高
+        - 趋势（25分）：多头排列得分高
+        - 乖离率（14分）：接近 MA5 得分高
+        - 量能三维（10分）：量比绝对值 + 方向 + 日内K线结构
+        - 支撑（8分）：获得均线支撑得分高
+        - MACD（12分）：金叉和多头得分高
+        - RSI（8分）：超卖和强势得分高
+        - 筹码（5分）：获利比例 + 集中度
+        - 资金流（5分）：主力资金流向
+        - 多周期动量（5分）：5/20/60日涨幅一致性
+        - 日内K线（4分）：实体/影线结构
+        - 估值（4分）：PE/PB 健康度
         """
         score = 0
         reasons = []
         risks = []
 
-        # === 趋势评分（30分）===
+        # ============================================================
+        # 1. 趋势评分（25分）
+        # ============================================================
         trend_scores = {
-            TrendStatus.STRONG_BULL: 30,
-            TrendStatus.BULL: 26,
-            TrendStatus.WEAK_BULL: 18,
-            TrendStatus.CONSOLIDATION: 12,
-            TrendStatus.WEAK_BEAR: 8,
-            TrendStatus.BEAR: 4,
+            TrendStatus.STRONG_BULL: 25,
+            TrendStatus.BULL: 21,
+            TrendStatus.WEAK_BULL: 14,
+            TrendStatus.CONSOLIDATION: 8,
+            TrendStatus.WEAK_BEAR: 5,
+            TrendStatus.BEAR: 2,
             TrendStatus.STRONG_BEAR: 0,
         }
-        trend_score = trend_scores.get(result.trend_status, 12)
+        trend_score = trend_scores.get(result.trend_status, 8)
         score += trend_score
 
         if result.trend_status in [TrendStatus.STRONG_BULL, TrendStatus.BULL]:
@@ -617,13 +699,13 @@ class StockTrendAnalyzer:
         elif result.trend_status in [TrendStatus.BEAR, TrendStatus.STRONG_BEAR]:
             risks.append(f"⚠️ {result.trend_status.value}，不宜做多")
 
-        # === 乖离率评分（20分，强势趋势补偿）===
+        # ============================================================
+        # 2. 乖离率评分（14分，强势趋势补偿）
+        # ============================================================
         bias = result.bias_ma5
-        if bias != bias or bias is None:  # NaN or None defense
+        if bias != bias or bias is None:
             bias = 0.0
         base_threshold = get_config().bias_threshold
-
-        # Strong trend compensation: relax threshold for STRONG_BULL with high strength
         trend_strength = result.trend_strength if result.trend_strength == result.trend_strength else 0.0
         if result.trend_status == TrendStatus.STRONG_BULL and (trend_strength or 0) >= 70:
             effective_threshold = base_threshold * 1.5
@@ -633,73 +715,79 @@ class StockTrendAnalyzer:
             is_strong_trend = False
 
         if bias < 0:
-            # Price below MA5 (pullback)
             if bias > -3:
-                score += 20
-                reasons.append(f"✅ 价格略低于MA5({bias:.1f}%)，回踩买点")
+                score += 14; reasons.append(f"✅ 价格略低于MA5({bias:.1f}%)，回踩买点")
             elif bias > -5:
-                score += 16
-                reasons.append(f"✅ 价格回踩MA5({bias:.1f}%)，观察支撑")
+                score += 11; reasons.append(f"✅ 价格回踩MA5({bias:.1f}%)，观察支撑")
             else:
-                score += 8
-                risks.append(f"⚠️ 乖离率过大({bias:.1f}%)，可能破位")
+                score += 5; risks.append(f"⚠️ 乖离率过大({bias:.1f}%)，可能破位")
         elif bias < 2:
-            score += 18
-            reasons.append(f"✅ 价格贴近MA5({bias:.1f}%)，介入好时机")
+            score += 12; reasons.append(f"✅ 价格贴近MA5({bias:.1f}%)，介入好时机")
         elif bias < base_threshold:
-            score += 14
-            reasons.append(f"⚡ 价格略高于MA5({bias:.1f}%)，可小仓介入")
+            score += 9; reasons.append(f"⚡ 价格略高于MA5({bias:.1f}%)，可小仓介入")
         elif bias > effective_threshold:
-            score += 4
-            risks.append(
-                f"❌ 乖离率过高({bias:.1f}%>{effective_threshold:.1f}%)，严禁追高！"
-            )
+            score += 2; risks.append(f"❌ 乖离率过高({bias:.1f}%)，严禁追高！")
         elif bias > base_threshold and is_strong_trend:
-            score += 10
-            reasons.append(
-                f"⚡ 强势趋势中乖离率偏高({bias:.1f}%)，可轻仓追踪"
-            )
+            score += 6; reasons.append(f"⚡ 强势趋势中乖离率偏高({bias:.1f}%)，可轻仓追踪")
         else:
-            score += 4
-            risks.append(
-                f"❌ 乖离率过高({bias:.1f}%>{base_threshold:.1f}%)，严禁追高！"
-            )
+            score += 2; risks.append(f"❌ 乖离率过高({bias:.1f}%)，严禁追高！")
 
-        # === 量能评分（15分）===
-        volume_scores = {
-            VolumeStatus.SHRINK_VOLUME_DOWN: 15,  # 缩量回调最佳
-            VolumeStatus.HEAVY_VOLUME_UP: 12,     # 放量上涨次之
-            VolumeStatus.NORMAL: 10,
-            VolumeStatus.SHRINK_VOLUME_UP: 6,     # 无量上涨较差
-            VolumeStatus.HEAVY_VOLUME_DOWN: 0,    # 放量下跌最差
-        }
-        vol_score = volume_scores.get(result.volume_status, 8)
-        score += vol_score
+        # ============================================================
+        # 3. 量能三维评分（10分）：绝对值 + 方向 + 日内结构
+        # ============================================================
+        # 维度1: 量比绝对值 (0-4分)
+        vr = result.volume_ratio_5d
+        vol_abs_score = 0
+        if vr >= 1.5:    vol_abs_score = 4; reasons.append("✅ 量比≥1.5，放量活跃")
+        elif vr >= 1.0:  vol_abs_score = 3; reasons.append("✅ 量比≥1.0，量能正常")
+        elif vr >= 0.7:  vol_abs_score = 1  # 偏低但不处罚
+        else:            vol_abs_score = 0; risks.append("⚠️ 量比<0.7，地量交投清淡")
 
-        if result.volume_status == VolumeStatus.SHRINK_VOLUME_DOWN:
-            reasons.append("✅ 缩量回调，主力洗盘")
+        # 维度2: 量价方向 (0-4分)
+        vol_dir_score = 0
+        if result.volume_status == VolumeStatus.HEAVY_VOLUME_UP:
+            vol_dir_score = 4; reasons.append("✅ 放量上涨，量价齐升")
+        elif result.volume_status == VolumeStatus.SHRINK_VOLUME_DOWN:
+            vol_dir_score = 3; reasons.append("✅ 缩量回调，整理蓄力")
         elif result.volume_status == VolumeStatus.HEAVY_VOLUME_DOWN:
-            risks.append("⚠️ 放量下跌，注意风险")
+            vol_dir_score = 0; risks.append("⚠️ 放量下跌")
+        elif result.volume_status == VolumeStatus.SHRINK_VOLUME_UP:
+            vol_dir_score = 1; risks.append("⚠️ 无量上涨")
+        else:
+            vol_dir_score = 2
 
-        # === 支撑评分（10分）===
+        # 维度3: 日内K线量能确认 (0-2分)
+        kline_vol = 0
+        if result.is_bullish_candle and result.body_pct > 0.5:
+            kline_vol = 2; reasons.append("✅ 阳线实体有力")
+        elif result.is_bullish_candle:
+            kline_vol = 1
+        elif result.body_pct > 2 and not result.is_bullish_candle:
+            kline_vol = 0; risks.append("⚠️ 中阴线空方主导")
+
+        score += vol_abs_score + vol_dir_score + kline_vol
+
+        # ============================================================
+        # 4. 支撑评分（8分）
+        # ============================================================
         if result.support_ma5:
-            score += 5
-            reasons.append("✅ MA5支撑有效")
+            score += 4; reasons.append("✅ MA5支撑有效")
         if result.support_ma10:
-            score += 5
-            reasons.append("✅ MA10支撑有效")
+            score += 4; reasons.append("✅ MA10支撑有效")
 
-        # === MACD 评分（15分）===
+        # ============================================================
+        # 5. MACD 评分（12分）
+        # ============================================================
         macd_scores = {
-            MACDStatus.GOLDEN_CROSS_ZERO: 15,  # 零轴上金叉最强
-            MACDStatus.GOLDEN_CROSS: 12,      # 金叉
-            MACDStatus.CROSSING_UP: 10,       # 上穿零轴
-            MACDStatus.BULLISH: 8,            # 多头
-            MACDStatus.BEARISH: 2,            # 空头
-            MACDStatus.CROSSING_DOWN: 0,       # 下穿零轴
-            MACDStatus.DEATH_CROSS: 0,        # 死叉
+            MACDStatus.GOLDEN_CROSS_ZERO: 12,
+            MACDStatus.GOLDEN_CROSS: 10,
+            MACDStatus.CROSSING_UP: 8,
+            MACDStatus.BULLISH: 6,
+            MACDStatus.BEARISH: 1,
+            MACDStatus.CROSSING_DOWN: 0,
+            MACDStatus.DEATH_CROSS: 0,
         }
-        macd_score = macd_scores.get(result.macd_status, 5)
+        macd_score = macd_scores.get(result.macd_status, 4)
         score += macd_score
 
         if result.macd_status in [MACDStatus.GOLDEN_CROSS_ZERO, MACDStatus.GOLDEN_CROSS]:
@@ -709,15 +797,23 @@ class StockTrendAnalyzer:
         else:
             reasons.append(result.macd_signal)
 
-        # === RSI 评分（10分）===
+        # MACD 钝化检测：DIF 在零轴上但柱状图收窄 (>20%收缩 = 动能在衰减)
+        if (result.macd_status == MACDStatus.BULLISH
+                and result.macd_bar > 0
+                and result.macd_bar < result.macd_dif * 0.15):
+            risks.append("⚠️ MACD柱收窄，上行动能减弱")
+
+        # ============================================================
+        # 6. RSI 评分（8分）
+        # ============================================================
         rsi_scores = {
-            RSIStatus.OVERSOLD: 10,       # 超卖最佳
-            RSIStatus.STRONG_BUY: 8,     # 强势
-            RSIStatus.NEUTRAL: 5,        # 中性
-            RSIStatus.WEAK: 3,            # 弱势
-            RSIStatus.OVERBOUGHT: 0,       # 超买最差
+            RSIStatus.OVERSOLD: 8,
+            RSIStatus.STRONG_BUY: 6,
+            RSIStatus.NEUTRAL: 4,
+            RSIStatus.WEAK: 2,
+            RSIStatus.OVERBOUGHT: 0,
         }
-        rsi_score = rsi_scores.get(result.rsi_status, 5)
+        rsi_score = rsi_scores.get(result.rsi_status, 4)
         score += rsi_score
 
         if result.rsi_status in [RSIStatus.OVERSOLD, RSIStatus.STRONG_BUY]:
@@ -727,12 +823,105 @@ class StockTrendAnalyzer:
         else:
             reasons.append(result.rsi_signal)
 
-        # === 综合判断 ===
+        # ============================================================
+        # 7. 筹码评分（5分）
+        # ============================================================
+        chip_score = 0
+        if result.chip_profit_ratio >= 50:
+            chip_score += 3; reasons.append(f"✅ 获利盘{result.chip_profit_ratio:.0f}%，筹码健康")
+        elif result.chip_profit_ratio > 0:
+            chip_score += 1
+        if result.chip_concentration > 0 and result.chip_concentration < 12:
+            chip_score += 2; reasons.append(f"✅ 筹码集中度{result.chip_concentration:.1f}%，集中良好")
+        elif result.chip_concentration > 0:
+            chip_score += 1
+        score += chip_score
+
+        # ============================================================
+        # 8. 资金流评分（5分）
+        # ============================================================
+        flow_score = 0
+        inflow = result.main_net_inflow_5d
+        if inflow > 0:
+            flow_score = min(5, int(inflow / 20000000))  # 每2000万+1分, 上限5
+            if flow_score >= 2:
+                reasons.append(f"✅ 主力5日净流入{inflow/1e4:.0f}万")
+        elif inflow < 0:
+            outflow_pct = abs(inflow) / 1e8  # 相对亿元
+            if outflow_pct < 0.5:    # 流出<5000万
+                flow_score = 3; reasons.append(f"⚡ 主力微幅流出{abs(inflow)/1e4:.0f}万，噪声级别")
+            elif outflow_pct < 2:    # 流出5000万-2亿
+                flow_score = 1; risks.append(f"⚠️ 主力5日净流出{abs(inflow)/1e4:.0f}万")
+            else:
+                flow_score = 0; risks.append(f"⚠️ 主力持续流出{abs(inflow)/1e4:.0f}万")
+        score += flow_score
+
+        # ============================================================
+        # 9. 多周期动量评分（5分）
+        # ============================================================
+        momentum_score = 0
+        changes = [
+            (result.change_5d, "5日"),
+            (result.change_20d, "20日"),
+            (result.change_60d, "60日"),
+        ]
+        aligned_count = sum(1 for ch, _ in changes if ch > 0)
+        if aligned_count == 3:
+            momentum_score = 5; reasons.append("✅ 5/20/60日动量全正，中期趋势确认")
+        elif aligned_count == 2:
+            momentum_score = 3
+        elif aligned_count == 1:
+            momentum_score = 1
+        else:
+            momentum_score = 0; risks.append("⚠️ 多周期动量全负")
+        score += momentum_score
+
+        # ============================================================
+        # 10. 日内K线结构评分（4分）
+        # ============================================================
+        kline_score = 0
+        if result.is_bullish_candle:
+            kline_score += 2; reasons.append("✅ 当日阳线")
+            if result.lower_shadow_pct > result.body_pct * 1.5:
+                kline_score += 2; reasons.append("✅ 长下影线，抄底支撑确认")
+            elif result.lower_shadow_pct > result.body_pct:
+                kline_score += 1
+        else:
+            if result.lower_shadow_pct > result.body_pct * 2:
+                kline_score += 2; reasons.append("✅ 阴线长下影，承接有力")
+            elif result.lower_shadow_pct > result.body_pct:
+                kline_score += 1
+            if result.body_pct > 2 and result.upper_shadow_pct < result.body_pct * 0.3:
+                kline_score += 0; risks.append("⚠️ 中阴线且上影线短，空方主导")
+        score += kline_score
+
+        # ============================================================
+        # 11. 估值评分（4分）
+        # ============================================================
+        val_score = 0
+        if result.pe_ratio > 0:
+            if result.pe_ratio < 20:
+                val_score += 2; reasons.append(f"✅ PE={result.pe_ratio:.1f}，估值偏低")
+            elif result.pe_ratio < 40:
+                val_score += 1
+            elif result.pe_ratio > 100:
+                risks.append(f"⚠️ PE={result.pe_ratio:.0f}，估值偏高")
+        if result.pb_ratio > 0:
+            if result.pb_ratio < 3:
+                val_score += 2; reasons.append(f"✅ PB={result.pb_ratio:.2f}，资产合理")
+            elif result.pb_ratio < 5:
+                val_score += 1
+            elif result.pb_ratio > 10:
+                risks.append(f"⚠️ PB={result.pb_ratio:.1f}，估值偏高")
+        score += val_score
+
+        # ============================================================
+        # 综合判断
+        # ============================================================
         result.signal_score = score
         result.signal_reasons = reasons
         result.risk_factors = risks
 
-        # 生成买入信号（调整阈值以适应新的100分制）
         if score >= 75 and result.trend_status in [TrendStatus.STRONG_BULL, TrendStatus.BULL]:
             result.buy_signal = BuySignal.STRONG_BUY
         elif score >= 60 and result.trend_status in [TrendStatus.STRONG_BULL, TrendStatus.BULL, TrendStatus.WEAK_BULL]:
