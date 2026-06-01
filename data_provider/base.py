@@ -1459,9 +1459,16 @@ class DataFetcherManager:
 
         config = get_config()
 
-        # 如果实时行情功能被禁用，直接返回 None
+        # 如果实时行情功能被禁用，跳过实时价格但保留 PE/PB 估值数据
+        # PE/PB 来自 Tushare daily_basic（历史数据），不需要"实时"
         if not config.enable_realtime_quote:
-            logger.debug(f"[实时行情] 功能已禁用，跳过 {stock_code}")
+            logger.debug(f"[实时行情] 功能已禁用，跳过 {stock_code} 价格，尝试获取 PE/PB")
+            try:
+                pe_pb_payload = self._fetch_valuation_only(stock_code)
+                if pe_pb_payload:
+                    return pe_pb_payload
+            except Exception:
+                pass
             return None
 
         # ----------------------------------------------------------
@@ -1885,6 +1892,23 @@ class DataFetcherManager:
         # 4. 所有数据源都失败
         logger.warning(f"[股票名称] 所有数据源都无法获取 {stock_code} 的名称")
         return ""
+
+    def _fetch_valuation_only(self, stock_code: str):
+        """Fetch PE/PB/total_mv/circ_mv without real-time price wrapper.
+
+        Used as fallback when enable_realtime_quote=False — PE/PB data
+        from Tushare daily_basic is historical, not 'realtime'.
+        """
+        try:
+            fetcher = self._get_fetcher_by_name("TushareFetcher", "realtime_quote")
+            if fetcher is None or not self._is_fetcher_available(fetcher, "realtime_quote"):
+                return None
+            result = fetcher.get_realtime_quote(stock_code)
+            if result is None:
+                return None
+            return result
+        except Exception:
+            return None
 
     def get_belong_boards(self, stock_code: str) -> List[Dict[str, Any]]:
         """
