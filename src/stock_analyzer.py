@@ -336,6 +336,14 @@ class StockTrendAnalyzer:
             result.pe_ratio = float(val_data.get('pe_ratio', 0) or 0)
             result.pb_ratio = float(val_data.get('pb_ratio', 0) or 0)
 
+        logger.debug(
+            "[TrendAnalyzer] %s external data: chip_profit=%.1f chip_conc=%.1f "
+            "flow_5d=%.0f PE=%.1f PB=%.2f",
+            code,
+            result.chip_profit_ratio, result.chip_concentration,
+            result.main_net_inflow_5d, result.pe_ratio, result.pb_ratio,
+        )
+
         return result
     
     def _calculate_mas(self, df: pd.DataFrame) -> pd.DataFrame:

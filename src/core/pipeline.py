@@ -83,22 +83,42 @@ logger = logging.getLogger(__name__)
 _SINGLE_STOCK_NOTIFY_LOCK_INIT_GUARD = threading.Lock()
 
 
+def _chip_to_dict(chip_data) -> dict:
+    """Extract chip distribution fields robustly from any chip object type."""
+    if chip_data is None:
+        return {}
+    if isinstance(chip_data, dict):
+        return chip_data
+    result = {}
+    for field in ('profit_ratio', 'concentration_90', 'concentration_70', 'concentration', 'avg_cost'):
+        val = getattr(chip_data, field, None)
+        if val is not None:
+            result[field] = float(val)
+    return result
+
+
 def _extract_capital_flow(fundamental_context: dict) -> dict:
     """Extract capital flow fields from fundamental context for trend analyzer."""
     if not isinstance(fundamental_context, dict):
+        logger.debug("[_extract_capital_flow] fundamental_context is not dict: %s", type(fundamental_context))
         return {}
     cf = fundamental_context.get("capital_flow", {})
     if not isinstance(cf, dict):
+        logger.debug("[_extract_capital_flow] capital_flow not dict: %s type=%s", cf.keys() if isinstance(cf, dict) else type(cf))
         return {}
+    # fundamental_context['capital_flow'] structure: {"status": "ok", "data": {...}}
     cfd = cf.get("data", cf)
     if not isinstance(cfd, dict):
+        logger.debug("[_extract_capital_flow] data not dict")
         return {}
     sf = cfd.get("stock_flow", cfd)
     if not isinstance(sf, dict):
+        logger.debug("[_extract_capital_flow] stock_flow not dict")
         return {}
-    return {
-        "main_net_inflow": sf.get("main_net_inflow", 0) or 0,
-    }
+    result = {"main_net_inflow": sf.get("main_net_inflow", 0) or 0}
+    logger.info("[_extract_capital_flow] %s main_net_inflow=%.0f", 
+                fundamental_context.get("market", "?"), result["main_net_inflow"])
+    return result
 
 
 class StockAnalysisPipeline:
@@ -433,7 +453,7 @@ class StockAnalysisPipeline:
                         df = self._augment_historical_with_realtime(df, realtime_quote, code)
                     trend_result = self.trend_analyzer.analyze(
                         df, code,
-                        chip_data=self._safe_to_dict(chip_data) if chip_data else None,
+                        chip_data=_chip_to_dict(chip_data),
                         capital_flow=_extract_capital_flow(fundamental_context),
                         fundamental=fundamental_context,
                     )
