@@ -5,6 +5,7 @@ import { ReportStrategy } from './ReportStrategy';
 import { ReportNews } from './ReportNews';
 import { ReportDetails } from './ReportDetails';
 import { ReportDiagnostics } from './ReportDiagnostics';
+import { ReportAgentChain } from './ReportAgentChain';
 import { AnalysisContextSummary } from './AnalysisContextSummary';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
 
@@ -43,6 +44,12 @@ export const ReportSummary: React.FC<ReportSummaryProps> = ({
         summary={summary}
         details={details}
         isHistory={isHistory}
+      />
+
+      {/* Agent 分析链路 — 展示每个 Agent 的信号、置信度、分析逻辑和结论 */}
+      <ReportAgentChain
+        details={details}
+        language={reportLanguage}
       />
 
       {/* 运行诊断摘要 */}

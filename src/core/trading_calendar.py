@@ -150,6 +150,32 @@ def is_market_open(market: str, check_date: date) -> bool:
         return True
 
 
+def is_market_session_open(market: str) -> bool:
+    """
+    Check if the market is currently open for trading (intraday session).
+
+    Unlike is_market_open which checks the calendar date, this checks the
+    clock — returns False outside of regular trading hours even on a
+    trading day (e.g. 01:41 AM).
+
+    Used to prevent realtime MA augmentation from inserting stale close
+    prices as "today's" data during off-hours, which would shift MA windows.
+    """
+    now = get_market_now(market)
+    # A-share session: 9:30 - 11:30, 13:00 - 15:00
+    if market == "cn":
+        h, m = now.hour, now.minute
+        t = h * 60 + m
+        return (9 * 60 + 30 <= t <= 11 * 60 + 30) or (13 * 60 <= t <= 15 * 60)
+    # HK session: 9:30 - 12:00, 13:00 - 16:00
+    if market == "hk":
+        h, m = now.hour, now.minute
+        t = h * 60 + m
+        return (9 * 60 + 30 <= t <= 12 * 60) or (13 * 60 <= t <= 16 * 60)
+    # US session: 9:30 - 16:00 ET (approx, fallback to True)
+    return True
+
+
 def get_market_now(
     market: Optional[str], current_time: Optional[datetime] = None
 ) -> datetime:

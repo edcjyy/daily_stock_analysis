@@ -159,6 +159,15 @@ export interface ReportDetails {
   sectorRankings?: SectorRankings;
 }
 
+/** Individual agent opinion from multi-agent pipeline */
+export interface AgentOpinion {
+  agent_name: string;
+  signal: string;
+  confidence: number;
+  reasoning: string;
+  key_levels: Record<string, number>;
+}
+
 /** Full analysis report */
 export interface AnalysisReport {
   meta: ReportMeta;

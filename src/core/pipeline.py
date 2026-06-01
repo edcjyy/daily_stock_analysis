@@ -1780,6 +1780,15 @@ class StockAnalysisPipeline:
         if market and not is_market_open(market, market_today):
             return df
 
+        # Intraday guard: only augment during actual market hours.
+        # On non-trading hours (e.g. 01:41 AM), is_market_open returns
+        # True for the calendar date but the exchange is closed.  Appending
+        # a row with stale close=18.69 as "today" shifts MA windows and
+        # produces wrong values (MA10=18.76 instead of 18.59).
+        from src.core.trading_calendar import is_market_session_open
+        if not is_market_session_open(market):
+            return df
+
         last_val = df['date'].max()
         last_date = (
             last_val.date() if hasattr(last_val, 'date') else

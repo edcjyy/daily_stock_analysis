@@ -49,6 +49,13 @@ const REPORT_TEXT = {
     laggingBoard: '领跌',
     neutralBoard: '中性',
     reanalyze: '重新分析',
+    // Agent Analysis Chain
+    agentChain: 'Agent 分析链路',
+    signal: '信号',
+    confidence: '置信度',
+    reasoningLabel: '分析逻辑',
+    keyLevels: '关键价位',
+    noAgentOpinions: '本报告不包含 Agent 分析链路数据（可能来自旧版分析记录或 Agent 未配置）。',
   },
   en: {
     keyInsights: 'KEY INSIGHTS',
@@ -95,6 +102,13 @@ const REPORT_TEXT = {
     laggingBoard: 'Lagging',
     neutralBoard: 'Neutral',
     reanalyze: 'Reanalyze',
+    // Agent Analysis Chain
+    agentChain: 'Agent Analysis Chain',
+    signal: 'Signal',
+    confidence: 'Confidence',
+    reasoningLabel: 'Reasoning',
+    keyLevels: 'Key Levels',
+    noAgentOpinions: 'This report does not include agent analysis chain data (may come from an older analysis or agent pipeline was not configured).',
   },
 } as const;
 

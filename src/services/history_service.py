@@ -830,6 +830,9 @@ class HistoryService:
         volume_analysis_label = "Volume" if report_language == "en" else "量能"
         news_heading = "News Flow" if report_language == "en" else "消息面"
 
+        # Extract agent_opinions from DB-stored context_snapshot
+        agent_opinions_raw = self._extract_agent_opinions(record)
+
         # Escape markdown special characters in stock name
         name_escaped = self._escape_md(
             get_localized_stock_name(result.name, result.code, report_language)
@@ -906,6 +909,9 @@ class HistoryService:
                 f"| 💼 **{labels['has_position_label']}** | {pos_advice.get('has_position', labels['continue_holding'])} |",
                 "",
             ])
+
+        # ========== Agent 分析链路 ==========
+        self._append_agent_opinions_to_report(report_lines, agent_opinions_raw, labels, report_language)
 
         # ========== 行情快照 ==========
         self._append_market_snapshot_to_report(report_lines, result, labels)
@@ -1079,6 +1085,110 @@ class HistoryService:
         if not text:
             return ""
         return text.replace('*', r'\*')
+
+    @staticmethod
+    def _extract_agent_opinions(record) -> Optional[List[Dict[str, Any]]]:
+        """Extract agent_opinions from the DB-stored context_snapshot JSON."""
+        if not hasattr(record, 'context_snapshot') or not record.context_snapshot:
+            return None
+        try:
+            snapshot = json.loads(record.context_snapshot) if isinstance(record.context_snapshot, str) else record.context_snapshot
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+        if not isinstance(snapshot, dict):
+            return None
+        opinions = snapshot.get('agent_opinions')
+        if not isinstance(opinions, list) or len(opinions) == 0:
+            return None
+        return opinions
+
+    @staticmethod
+    def _append_agent_opinions_to_report(
+        lines: List[str],
+        agent_opinions_raw: Optional[List[Dict[str, Any]]],
+        labels: Dict[str, str],
+        report_language: str,
+    ) -> None:
+        """Render agent opinions into the markdown report."""
+        if not agent_opinions_raw:
+            return
+
+        is_en = report_language == 'en'
+
+        # Signal label mapping
+        signal_labels_cn = {
+            'buy': '买入', 'strong_buy': '强烈买入', 'hold': '持有',
+            'sell': '卖出', 'strong_sell': '强烈卖出', 'watch': '观望',
+        }
+        signal_labels_en = {
+            'buy': 'BUY', 'strong_buy': 'STRONG BUY', 'hold': 'HOLD',
+            'sell': 'SELL', 'strong_sell': 'STRONG SELL', 'watch': 'WATCH',
+        }
+
+        # Section header
+        agent_chain_heading = 'Agent Analysis Chain' if is_en else 'Agent 分析链路'
+        signal_label = 'Signal' if is_en else '信号'
+        confidence_label = 'Confidence' if is_en else '置信度'
+        reasoning_label = 'Reasoning' if is_en else '分析逻辑'
+        key_levels_label = 'Key Levels' if is_en else '关键价位'
+
+        level_labels = {
+            'support': 'Support' if is_en else '支撑',
+            'resistance': 'Resistance' if is_en else '压力',
+            'stop_loss': 'Stop Loss' if is_en else '止损',
+            'take_profit': 'Take Profit' if is_en else '止盈',
+        }
+
+        lines.extend([
+            f"### 🧠 {agent_chain_heading}",
+            "",
+        ])
+
+        for i, op in enumerate(agent_opinions_raw):
+            if not isinstance(op, dict):
+                continue
+
+            agent_name = op.get('agent_name', '?')
+            signal_raw = str(op.get('signal', '')).strip()
+            confidence = float(op.get('confidence', 0.0))
+            reasoning = str(op.get('reasoning', '')).strip()
+            key_levels = op.get('key_levels', {}) or {}
+
+            signal_display = (signal_labels_en if is_en else signal_labels_cn).get(signal_raw, signal_raw)
+            confidence_pct = f"{int(confidence * 100)}%"
+
+            # Agent header with signal and confidence
+            lines.append(f"**{i + 1}. `{agent_name}`** — {signal_display} | {confidence_label}: {confidence_pct}")
+            lines.append("")
+
+            # Reasoning
+            if reasoning:
+                # Truncate very long reasoning but keep substantial context
+                max_len = 1200
+                if len(reasoning) > max_len:
+                    reasoning = reasoning[:max_len] + "..."
+                lines.extend([
+                    f"> **{reasoning_label}**: {reasoning}",
+                    "",
+                ])
+
+            # Key levels
+            if isinstance(key_levels, dict) and key_levels:
+                level_items = []
+                for key, display in level_labels.items():
+                    val = key_levels.get(key)
+                    if val is not None and (isinstance(val, (int, float)) and not (isinstance(val, float) and (val != val))):
+                        level_items.append(f"{display}: {val:.2f}")
+                # Add any extra keys
+                for key, val in key_levels.items():
+                    if key not in level_labels and val is not None:
+                        if isinstance(val, (int, float)) and not (isinstance(val, float) and (val != val)):
+                            level_items.append(f"{key.replace('_', ' ').title()}: {val:.2f}")
+                if level_items:
+                    lines.append(f"📊 **{key_levels_label}**: {' | '.join(level_items)}")
+                    lines.append("")
+
+        lines.append("")
 
     @staticmethod
     def _clean_sniper_value(value: Any) -> str:
